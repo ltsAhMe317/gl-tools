@@ -21,6 +21,7 @@ use crate::{TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT};
 use super::{FrameBuffer, PROGRAM2D_TWO};
 
 const TEXTURE_MAP_MAX: i32 = 4000;
+const TEXTURE_MAP_SPLIT: i32 = 1;
 
 #[derive(Clone, Copy, Debug)]
 pub struct UVindex {
@@ -96,7 +97,9 @@ impl<T: Hash + Eq> TextureMap<T> {
             TEXTURE_MAP_MAX as u32,
             TEXTURE_MAP_MAX as u32,
             TextureType::RGBA8,
-            TextureParm::new(),
+            TextureParm::new()
+                .min_filter(gl::LINEAR)
+                .mag_filter(gl::LINEAR),
         ));
         let mut frame = FrameBuffer::new();
         frame.link_texture(texture, gl::COLOR_ATTACHMENT0);
@@ -141,40 +144,49 @@ impl<T: Hash + Eq> TextureMap<T> {
         let mut uv_list = HashMap::new();
         for (name, texture) in vec.into_iter() {
             let texture = texture.as_ref();
-
-            let rect = match self
-                .allocator
-                .allocate(Size::new(texture.w as i32, texture.h as i32))
-            {
-                Some(rect) => rect.rectangle,
-                None => {
-                    return Err("can not allocate");
+            let uv;
+            if texture.w == 0 || texture.h == 0 {
+                uv = UVindex {
+                    x: 0f32,
+                    y: 0f32,
+                    w: 0f32,
+                    h: 0f32,
                 }
-            };
-            let uv = UVindex {
-                x: rect.min.x as f32 / TEXTURE_MAP_MAX as f32,
-                y: rect.min.y as f32 / TEXTURE_MAP_MAX as f32,
-                w: rect.width() as f32 / TEXTURE_MAP_MAX as f32,
-                h: rect.height() as f32 / TEXTURE_MAP_MAX as f32,
-            };
+            } else {
+                let rect = match self.allocator.allocate(Size::new(
+                    texture.w as i32 + TEXTURE_MAP_SPLIT,
+                    texture.h as i32 + TEXTURE_MAP_SPLIT,
+                )) {
+                    Some(rect) => rect.rectangle,
+                    None => {
+                        return Err("can not allocate");
+                    }
+                };
+                uv = UVindex {
+                    x: rect.min.x as f32 / TEXTURE_MAP_MAX as f32,
+                    y: rect.min.y as f32 / TEXTURE_MAP_MAX as f32,
+                    w: texture.w as f32 / TEXTURE_MAP_MAX as f32,
+                    h: texture.h as f32 / TEXTURE_MAP_MAX as f32,
+                };
 
-            texture.bind_unit(0);
+                texture.bind_unit(0);
 
-            VERTEX_MUT.sub(
-                &[
-                    uv.x,
-                    uv.y + uv.h,
-                    uv.x + uv.w,
-                    uv.y + uv.h,
-                    uv.x + uv.w,
-                    uv.y,
-                    uv.x,
-                    uv.y,
-                ],
-                0,
-            );
+                VERTEX_MUT.sub(
+                    &[
+                        uv.x,
+                        uv.y + uv.h,
+                        uv.x + uv.w,
+                        uv.y + uv.h,
+                        uv.x + uv.w,
+                        uv.y,
+                        uv.x,
+                        uv.y,
+                    ],
+                    0,
+                );
 
-            program.draw_rect(1);
+                program.draw_rect(1);
+            }
             uv_list.insert(name, uv);
         }
         FrameBuffer::unbind();
