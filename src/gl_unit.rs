@@ -756,9 +756,6 @@ impl Program {
             // let src = Self::get_enum(self.blend_func["srcrgb"].as_str().unwrap());
             // let dst = Self::get_enum(self.blend_func["dstrgb"].as_str().unwrap());
             // gl::BlendFunc(src, dst);
-
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
     }
     pub fn load_uniform(&self) {
