@@ -1,0 +1,21 @@
+[package]
+name = "gl_tools"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+freetype-rs = {version ="*",features = ["bundled"]}
+gl = "*"
+json = "*"
+xml-rs = "*"
+glam = "*"
+rusty_spine = "*"
+array-init = "*"
+image = "*"
+rand = "*"
+guillotiere = "*"
+
+
+[dependencies.glfw]
+version = "*"
+
