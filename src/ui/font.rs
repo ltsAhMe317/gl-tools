@@ -169,7 +169,12 @@ impl Font {
             }
         }
         //draw in tex_map
-        self.char_tex.add(ready_map_list, true);
+
+        if self.char_tex.add(ready_map_list, true).is_err() {
+            self.characters.clear();
+            self.char_tex.clear();
+            return self.get_char(str);
+        }
 
         vec
     }

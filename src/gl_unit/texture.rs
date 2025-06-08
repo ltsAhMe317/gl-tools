@@ -107,9 +107,13 @@ impl<T: Hash + Eq> TextureMap<T> {
             allocator: rect_map,
         }
     }
-    pub fn add<Tex: AsRef<Texture2D>>(&mut self, vec: Vec<(T, Tex)>, y_flip: bool) {
+    pub fn add<Tex: AsRef<Texture2D>>(
+        &mut self,
+        vec: Vec<(T, Tex)>,
+        y_flip: bool,
+    ) -> Result<(), &'static str> {
         if vec.is_empty() {
-            return;
+            return Err("textures is empty");
         }
 
         self.frame.bind(gl::FRAMEBUFFER);
@@ -144,16 +148,7 @@ impl<T: Hash + Eq> TextureMap<T> {
             {
                 Some(rect) => rect.rectangle,
                 None => {
-                    uv_list.insert(
-                        name,
-                        UVindex {
-                            x: 0f32,
-                            y: 0f32,
-                            w: 0f32,
-                            h: 0f32,
-                        },
-                    );
-                    continue;
+                    return Err("can not allocate");
                 }
             };
             let uv = UVindex {
@@ -164,28 +159,34 @@ impl<T: Hash + Eq> TextureMap<T> {
             };
 
             texture.bind_unit(0);
-            unsafe {
-                VERTEX_MUT.sub(
-                    &[
-                        uv.x,
-                        uv.y + uv.h,
-                        uv.x + uv.w,
-                        uv.y + uv.h,
-                        uv.x + uv.w,
-                        uv.y,
-                        uv.x,
-                        uv.y,
-                    ],
-                    0,
-                );
-            }
+
+            VERTEX_MUT.sub(
+                &[
+                    uv.x,
+                    uv.y + uv.h,
+                    uv.x + uv.w,
+                    uv.y + uv.h,
+                    uv.x + uv.w,
+                    uv.y,
+                    uv.x,
+                    uv.y,
+                ],
+                0,
+            );
 
             program.draw_rect(1);
             uv_list.insert(name, uv);
         }
         FrameBuffer::unbind();
         self.index.extend(uv_list);
+        Ok(())
     }
+
+    pub fn clear(&mut self) {
+        self.allocator.clear();
+        self.index.clear();
+    }
+
     pub fn get_uv(&self, name: &T) -> Option<UVindex> {
         Some(*self.index.get(name)?)
     }
