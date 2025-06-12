@@ -1,6 +1,7 @@
+use crate::gl_unit::program::{Program, PROGRAM2D_ONE};
 use crate::gl_unit::texture::{Texture, TextureMap, UVindex};
-use crate::gl_unit::{self, ConstBlend, PROGRAM2D_ONE};
-use crate::gl_unit::{window::Window, Program};
+use crate::gl_unit::window::Window;
+use crate::gl_unit::{self, ConstBlend};
 use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use core::fmt::{Debug, Formatter};
 use glam::{vec2, vec3, vec4, Mat4, Vec3, Vec4Swizzles};

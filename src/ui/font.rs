@@ -6,9 +6,10 @@ use freetype::{self as ft, Bitmap, GlyphSlot};
 use glam::{vec3, Mat4};
 use std::collections::HashMap;
 
+use crate::gl_unit::program::Program;
 use crate::gl_unit::texture::{Texture, TextureMap, TextureWrapper};
 use crate::gl_unit::{self, view_port};
-use crate::gl_unit::{texture::Texture2D, texture::TextureParm, texture::TextureType, Program};
+use crate::gl_unit::{texture::Texture2D, texture::TextureParm, texture::TextureType};
 use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use std::path::Path;
 

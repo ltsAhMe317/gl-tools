@@ -18,7 +18,7 @@ use std::fmt::{Debug, Formatter};
 
 use crate::{TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT};
 
-use super::{ConstBlend, FrameBuffer, PROGRAM2D_TWO};
+use super::{program::PROGRAM2D_TWO, ConstBlend, FrameBuffer};
 
 const TEXTURE_MAP_MAX: i32 = 480;
 const TEXTURE_MAP_SPLIT: i32 = 1;
@@ -212,9 +212,10 @@ mod test {
 
     use crate::{
         gl_unit::{
+            program::PROGRAM2D_ONE,
             texture::{Texture, TextureWrapper},
             window::Window,
-            GLcontext, PROGRAM2D_ONE,
+            GLcontext,
         },
         TEX_VERTEX_MUT, VAO_MUT, VERTEX_MUT,
     };
