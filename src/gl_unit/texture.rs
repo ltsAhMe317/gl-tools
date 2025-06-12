@@ -19,7 +19,7 @@ use std::fmt::{Debug, Formatter};
 
 use crate::{TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT};
 
-use super::{FrameBuffer, PROGRAM2D_TWO};
+use super::{ConstBlend, FrameBuffer, PROGRAM2D_TWO};
 
 const TEXTURE_MAP_MAX: i32 = 4000;
 const TEXTURE_MAP_SPLIT: i32 = 1;
@@ -119,7 +119,7 @@ impl<T: Hash + Eq> TextureMap<T> {
         if vec.is_empty() {
             return Err("textures is empty");
         }
-
+        crate::gl_unit::const_blend(ConstBlend::SrcOnly);
         self.frame.bind(gl::FRAMEBUFFER);
         self.frame.view_port();
         let program = PROGRAM2D_TWO.deref();
@@ -708,85 +708,6 @@ pub fn texture_parm(target: GLenum, parm: TextureParm) {
         gl::TexParameteri(target, gl::TEXTURE_WRAP_T, parm.wrap_t as GLint);
         gl::PixelStorei(gl::UNPACK_ALIGNMENT, parm.once_size);
     }
-}
-
-#[derive(Clone, Copy)]
-pub enum Blend {
-    Zero,
-    One,
-    SrcColor,
-    DstColor,
-    OneMinusSrcColor,
-    OneMinusDstColor,
-    OneMinusSrcAlpha,
-    OneMinusDstAlpha,
-
-    SrcAlpha,
-    DstAlpha,
-
-    ConstColor,
-    ConstAlpha,
-}
-impl Blend {
-    pub const fn gl_enum(&self) -> GLenum {
-        match self {
-            Blend::Zero => gl::ZERO,
-            Blend::One => gl::ONE,
-            Blend::SrcColor => gl::SRC_COLOR,
-            Blend::DstColor => gl::DST_COLOR,
-            Blend::OneMinusSrcColor => gl::ONE_MINUS_SRC_COLOR,
-            Blend::OneMinusDstColor => gl::ONE_MINUS_DST_COLOR,
-            Blend::SrcAlpha => gl::SRC_ALPHA,
-            Blend::DstAlpha => gl::DST_ALPHA,
-            Blend::ConstColor => gl::CONSTANT_COLOR,
-            Blend::ConstAlpha => gl::CONSTANT_ALPHA,
-            Blend::OneMinusSrcAlpha => gl::ONE_MINUS_SRC_ALPHA,
-            Blend::OneMinusDstAlpha => gl::ONE_MINUS_DST_ALPHA,
-        }
-    }
-}
-
-fn blend(src: Blend, dst: Blend) {
-    unsafe {
-        gl::Enable(gl::BLEND);
-        gl::BlendFunc(src.gl_enum(), dst.gl_enum());
-    }
-}
-
-pub enum ConstBlend {
-    // 正常混合 (src alpha, 1 - src alpha)
-    Normal,
-    // 加法混合 (src color + dst color)
-    Additive,
-    // 乘法混合 (src color * dst color)
-    Multiply,
-    // 屏幕混合 (1 - (1 - src color) * (1 - dst color))
-    Screen,
-    // 叠加混合 (根据底色决定 multiply 或 screen)
-    Overlay,
-    // 预乘 alpha 混合 (src alpha, 1)
-    Premultiplied,
-    // 自定义混合模式
-    Custom(Blend, Blend),
-}
-
-impl ConstBlend {
-    pub const fn blend(&self) -> (Blend, Blend) {
-        match self {
-            ConstBlend::Normal => (Blend::SrcAlpha, Blend::OneMinusSrcAlpha),
-            ConstBlend::Additive => (Blend::SrcAlpha, Blend::One),
-            ConstBlend::Multiply => (Blend::DstColor, Blend::Zero),
-            ConstBlend::Screen => (Blend::One, Blend::OneMinusSrcColor),
-            ConstBlend::Overlay => (Blend::One, Blend::OneMinusSrcAlpha),
-            ConstBlend::Premultiplied => (Blend::One, Blend::OneMinusSrcAlpha),
-            ConstBlend::Custom(src, dst) => (*src, *dst),
-        }
-    }
-}
-
-pub fn const_blend(b: ConstBlend) {
-    let (src, dst) = b.blend();
-    blend(src, dst);
 }
 
 // pub fn base_parm(target: GLenum) {

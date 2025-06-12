@@ -2,11 +2,12 @@ use std::sync::{LazyLock, Mutex};
 
 use freetype::face::LoadFlag;
 use freetype::{self as ft, Bitmap, GlyphSlot};
+use gl::BlendColor;
 use glam::{vec3, Mat4};
 use std::collections::HashMap;
 
 use crate::gl_unit::texture::{Texture, TextureMap, TextureWrapper};
-use crate::gl_unit::view_port;
+use crate::gl_unit::{self, view_port};
 use crate::gl_unit::{texture::Texture2D, texture::TextureParm, texture::TextureType, Program};
 use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use std::path::Path;
@@ -249,6 +250,7 @@ impl Font {
             x_count += (char.advance >> 6) as f32 * scale;
         }
         view_port(0, 0, window_w, window_h);
+        gl_unit::const_blend(gl_unit::ConstBlend::Normal);
         FT_PROGRAM.put_texture(0, FT_PROGRAM.get_uniform("text"));
         self.char_tex.get_tex().bind_unit(0);
         FT_PROGRAM.bind();
