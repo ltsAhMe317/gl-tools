@@ -1,8 +1,8 @@
+use std::fs;
 use std::sync::{LazyLock, Mutex};
 
 use freetype::face::LoadFlag;
 use freetype::{self as ft, Bitmap, GlyphSlot};
-use gl::BlendColor;
 use glam::{vec3, Mat4};
 use std::collections::HashMap;
 
@@ -107,22 +107,23 @@ impl Font {
             font_date: FT_LIB
                 .new_memory_face(raw, index)
                 .expect("new font from raw error!"),
-            char_tex: TextureMap::new(),
+            char_tex: TextureMap::new(4000, 4000),
             characters: HashMap::new(),
         };
         font.set_size(FONT_SIZE_AUTO, FT_TEXTURE_H);
         font
     }
     pub fn new_file(path: &Path, index: isize) -> Self {
-        let font = Self {
-            font_date: FT_LIB
-                .new_face(path, index)
-                .expect("new font from file error!"),
-            char_tex: TextureMap::new(),
-            characters: HashMap::new(),
-        };
-        font.set_size(FONT_SIZE_AUTO, FT_TEXTURE_H);
-        font
+        // let font = Self {
+        //     font_date: FT_LIB
+        //         .new_face(path, index)
+        //         .expect("new font from file error!"),
+        //     char_tex: TextureMap::new(4000, 4000),
+        //     characters: HashMap::new(),
+        // };
+        // font.set_size(FONT_SIZE_AUTO, FT_TEXTURE_H);
+        // font
+        Self::new_raw(fs::read(path).unwrap(), index)
     }
 
     fn set_size(&self, w: u32, h: u32) {
@@ -286,7 +287,6 @@ mod test {
         window.window.show();
 
         let mut font = Font::new_file(Path::new("./font.ttc"), 0);
-        let size = window.window.get_size();
 
         while !window.update() {
             context.draw_option(&mut window, |_, window| {

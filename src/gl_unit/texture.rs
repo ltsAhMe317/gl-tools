@@ -21,7 +21,7 @@ use crate::{TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT};
 
 use super::{ConstBlend, FrameBuffer, PROGRAM2D_TWO};
 
-const TEXTURE_MAP_MAX: i32 = 4000;
+const TEXTURE_MAP_MAX: i32 = 480;
 const TEXTURE_MAP_SPLIT: i32 = 1;
 
 #[derive(Clone, Copy, Debug)]
@@ -79,24 +79,20 @@ impl TextureMap<String> {
                 Err(err) => println!("failed read dir"),
             }
         }
-        let mut map: TextureMap<String> = TextureMap::<String>::new();
+        let mut map: TextureMap<String> =
+            TextureMap::<String>::new(TEXTURE_MAP_MAX, TEXTURE_MAP_MAX);
         map.add(texs, true);
         map
     }
 }
-impl<T: Hash + Eq> Default for TextureMap<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl<T: Hash + Eq> TextureMap<T> {
-    pub fn new() -> Self {
-        let rect_map = AtlasAllocator::new(Size::new(TEXTURE_MAP_MAX, TEXTURE_MAP_MAX));
+    pub fn new(w: i32, h: i32) -> Self {
+        let rect_map = AtlasAllocator::new(Size::new(w, h));
         let uv_list: HashMap<T, UVindex> = HashMap::new();
         let texture = TextureWrapper(Texture2D::with_size(
-            TEXTURE_MAP_MAX as u32,
-            TEXTURE_MAP_MAX as u32,
+            w as u32,
+            h as u32,
             TextureType::RGBA8,
             TextureParm::new()
                 .min_filter(gl::LINEAR)
@@ -285,7 +281,7 @@ mod test {
         // let what = vec![(&he, &tex)];
 
         println!("load map...");
-        let mut map = TextureMap::new();
+        let mut map = TextureMap::new(4000, 4000);
         map.add(tex_list, true);
         // map.frame
         //     .texture

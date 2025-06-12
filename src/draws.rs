@@ -1,7 +1,7 @@
-use crate::gl_unit::texture::{TextureMap, UVindex};
-use crate::gl_unit::PROGRAM2D_ONE;
+use crate::gl_unit::texture::{Texture, TextureMap, UVindex};
+use crate::gl_unit::{self, ConstBlend, PROGRAM2D_ONE};
 use crate::gl_unit::{window::Window, Program};
-use crate::VERTEX_BIG_MUT;
+use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use core::fmt::{Debug, Formatter};
 use glam::{vec2, vec3, vec4, Mat4, Vec3, Vec4Swizzles};
 
@@ -466,12 +466,14 @@ pub mod test {
 
         let tex_map = TextureMap::new_dir(Path::new("./test_res/reanim_texture/"));
         let reanim = Reanim::from_file(Path::new("./test_res/reanim/Coin_silver.reanim"), &tex_map);
-        let play = reanim.make_player();
+        let mut play = reanim.make_player();
+        play.add_anim(0, "loop", super::PlayMode::Loop);
         window.window.show();
         while !window.update() {
-            context.draw_option(&mut window, |_, _| {
-                play.render(&tex_map, Mat4::IDENTITY);
+            context.draw_option(&mut window, |context, window| {
+                play.render(window.window.get_size(), &tex_map, Mat4::IDENTITY);
             });
+            play.update(window.delta_count.delta as f32);
         }
     }
 }
@@ -503,7 +505,8 @@ impl Reanim {
         for _ in self.date.tracks.iter() {
             player.tracks.push(Tick::default());
         }
-        player.anims_delta.insert("base".to_string(), 0f32);
+        player.anims_delta.insert("loop".to_string(), 0f32);
+
         for (name, _) in self.date.anim.iter() {
             player.anims_delta.insert(
                 name.to_string(),
@@ -671,7 +674,7 @@ impl ReanimDate {
                 _ => {}
             }
         }
-        anims.insert("base".to_string(), 0..len);
+        anims.insert("loop".to_string(), 0..len);
         Self {
             anim: anims,
             fps,
@@ -717,11 +720,16 @@ pub struct ReanimPlayer {
 unsafe impl Send for ReanimPlayer {}
 unsafe impl Sync for ReanimPlayer {}
 impl ReanimPlayer {
-    pub fn render_program(&self, program: &Program, mat4: Mat4) {
+    pub fn render_program(
+        &self,
+        window_size: (i32, i32),
+        tex_map: &TextureMap<String>,
+        program: &Program,
+        mat4: Mat4,
+    ) {
+        //still need fix alpha
         todo!();
-        //fix render not visible
         let mut vertexs = Vec::new();
-        let mut count = 0;
         for tick in self.tracks.iter() {
             if let Some(texture) = tick.texture.as_ref() {
                 let mat = mat4_skew(
@@ -732,32 +740,37 @@ impl ReanimPlayer {
                 );
                 let vert = {
                     let (w, h) = texture.get_pixel_size();
-                    let (x, y) = (tick.x.unwrap(), -tick.y.unwrap());
-                    let vert_org = [
-                        vec2(x, y + h),
-                        vec2(x + w, y + h),
-                        vec2(x + w, y),
-                        vec2(x, y),
-                    ];
-                    vert_org.map(|vert| (mat * vert.extend(0f32).extend(1f32)).xy())
+                    let vert_org = [vec2(0f32, h), vec2(w, h), vec2(w, 0f32), vec2(0f32, 0f32)];
+                    vert_org.map(|vert| {
+                        (mat * vert.extend(0f32).extend(1f32)).xy()
+                            + vec2(tick.x.unwrap(), tick.y.unwrap())
+                    })
                 };
                 let uv = texture.get_uv();
                 vertexs.extend_from_slice(&[
                     vert[0].x, vert[0].y, uv[0], uv[1], vert[1].x, vert[1].y, uv[2], uv[3],
                     vert[2].x, vert[2].y, uv[4], uv[5], vert[3].x, vert[3].y, uv[6], uv[7],
                 ]);
-                count += 1;
             }
         }
+        tex_map.get_tex().bind_unit(0);
         //render
-
+        gl_unit::const_blend(ConstBlend::Normal);
+        program.bind();
+        VAO_MUT.with(&VERTEX_BIG_MUT, 0, 4, gl::FLOAT, 0);
         VERTEX_BIG_MUT.sub(&vertexs, 0);
-
+        program.put_texture(0, program.get_uniform("image"));
         program.put_matrix(&(mat4), program.get_uniform("model_mat"));
+        let (w, h) = window_size;
+        let (w, h) = (w as f32 / 2f32, h as f32 / 2f32);
+        program.put_matrix_name(
+            &Mat4::orthographic_rh_gl(-w, w, -h, h, 1f32, -1f32),
+            "project_mat",
+        );
         program.draw_rect(vertexs.len() as i32 / 16);
     }
-    pub fn render(&self, tex_map: &TextureMap<String>, mat: Mat4) {
-        self.render_program(&PROGRAM2D_ONE, mat);
+    pub fn render(&self, window_size: (i32, i32), tex_map: &TextureMap<String>, mat: Mat4) {
+        self.render_program(window_size, tex_map, &PROGRAM2D_ONE, mat);
     }
     pub fn update(&mut self, delta: f32) {
         // let mut some = TextOptions::default();

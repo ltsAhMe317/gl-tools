@@ -9,8 +9,8 @@ use glfw::{
 };
 
 pub struct Timer {
-    pub update: f64,
     pub delta: f64,
+    pub time_count: f64,
 }
 
 impl Default for Timer {
@@ -22,17 +22,17 @@ impl Default for Timer {
 impl Timer {
     pub const fn new() -> Self {
         Self {
+            time_count: 0f64,
             delta: 0f64,
-            update: 0f64,
         }
     }
     pub const fn update(&mut self, delta: f64) {
-        self.update = delta - self.delta;
-        self.delta = delta;
+        self.delta = delta - self.time_count;
+        self.time_count = delta;
     }
 
     pub const fn fps(&self) -> f64 {
-        1f64 / self.update
+        1f64 / self.delta
     }
 }
 

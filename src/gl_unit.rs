@@ -60,9 +60,10 @@ const PROGRAM2D_VERT_ONE: &str = "
     uniform mat4 project_mat;
     uniform mat4 model_mat;
     void main(){
-        gl_Position = project_mat * model_mat * vec4(vert.xy,0,1);
         uv = vert.zw;
-    }
+    
+        gl_Position = project_mat * model_mat * vec4(vert.xy,0,1);
+     }
 ";
 const PROGRAM2D_FRAG_ONE: &str = "
     #version 330
