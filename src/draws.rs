@@ -464,13 +464,13 @@ pub mod test {
         let mut window = Window::new(800, 600, "reanim test", false);
         let mut context = GLcontext::with(&mut window);
 
-        let tex_map = TextureMap::new_dir(Path::new("./test_res/reanim_texture/"));
+        let tex_map = TextureMap::new_files("./test_res/reanim_texture/", 800, 800);
         let reanim = Reanim::from_file(Path::new("./test_res/reanim/Coin_silver.reanim"), &tex_map);
         let mut play = reanim.make_player();
         play.add_anim(0, "loop", super::PlayMode::Loop);
         window.window.show();
         while !window.update() {
-            context.draw_option(&mut window, |context, window| {
+            context.draw_option(&mut window, |_, window| {
                 play.render(window.window.get_size(), &tex_map, Mat4::IDENTITY);
             });
             play.update(window.delta_count.delta as f32);
@@ -728,7 +728,7 @@ impl ReanimPlayer {
         mat4: Mat4,
     ) {
         //still need fix alpha
-        todo!();
+
         let mut vertexs = Vec::new();
         for tick in self.tracks.iter() {
             if let Some(texture) = tick.texture.as_ref() {
@@ -891,7 +891,7 @@ impl ReanimPlayer {
     fn update_anim(&mut self, anim_name: &str, delta: f32, next: bool) -> bool {
         let mut is_end = false;
         let range = self.date.get_anim_range(anim_name);
-        let fps_time = 1f32 / self.date.fps;
+
         let time = self.anims_delta.get_mut(anim_name).unwrap();
         let start_time = range.start as f32 / self.date.fps;
         if *time < start_time {

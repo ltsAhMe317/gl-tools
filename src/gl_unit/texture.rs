@@ -1,6 +1,5 @@
 use core::panic;
 use std::{
-    clone,
     collections::HashMap,
     ffi::c_void,
     fs::{self},
@@ -59,7 +58,7 @@ pub struct TextureMap<T: Hash + Eq> {
     index: HashMap<T, UVindex>,
 }
 impl TextureMap<String> {
-    pub fn new_dir(path: &Path) -> TextureMap<String> {
+    pub fn new_files(path: impl AsRef<Path>, w: i32, h: i32) -> TextureMap<String> {
         let read = fs::read_dir(path).expect("failed read dir");
         let mut texs = Vec::new();
         for file in read {
@@ -76,12 +75,11 @@ impl TextureMap<String> {
                         texs.push((file_name, texture));
                     }
                 }
-                Err(err) => println!("failed read dir"),
+                Err(err) => println!("failed read file {}", err),
             }
         }
-        let mut map: TextureMap<String> =
-            TextureMap::<String>::new(TEXTURE_MAP_MAX, TEXTURE_MAP_MAX);
-        map.add(texs, true);
+        let mut map: TextureMap<String> = TextureMap::<String>::new(w, h);
+        map.add(texs, true).unwrap();
         map
     }
 }
@@ -128,15 +126,13 @@ impl<T: Hash + Eq> TextureMap<T> {
         program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
         program.put_texture(0, program.get_uniform("image"));
 
-        unsafe {
-            // VAO_MUT.as_ref().unwrap().bind();
-            if y_flip {
-                VAO_MUT.with(&TEX_VERTEX_YFLIP_STATIC, 1, 2, gl::FLOAT, 0);
-            } else {
-                VAO_MUT.with(&TEX_VERTEX_STATIC, 1, 2, gl::FLOAT, 0);
-            }
-            VAO_MUT.with(&VERTEX_MUT, 0, 2, gl::FLOAT, 0);
+        // VAO_MUT.as_ref().unwrap().bind();
+        if y_flip {
+            VAO_MUT.with(&TEX_VERTEX_YFLIP_STATIC, 1, 2, gl::FLOAT, 0);
+        } else {
+            VAO_MUT.with(&TEX_VERTEX_STATIC, 1, 2, gl::FLOAT, 0);
         }
+        VAO_MUT.with(&VERTEX_MUT, 0, 2, gl::FLOAT, 0);
 
         let mut uv_list = HashMap::new();
 
@@ -282,7 +278,7 @@ mod test {
 
         println!("load map...");
         let mut map = TextureMap::new(4000, 4000);
-        map.add(tex_list, true);
+        map.add(tex_list, true).unwrap();
         // map.frame
         //     .texture
         //     .as_ref()
@@ -293,12 +289,11 @@ mod test {
         window.view_port();
         window.window.show();
 
-        unsafe {
-            VAO_MUT.with(&VERTEX_MUT, 0, 2, gl::FLOAT, 0);
-            VAO_MUT.with(&TEX_VERTEX_MUT, 1, 2, gl::FLOAT, 0);
-        }
+        VAO_MUT.with(&VERTEX_MUT, 0, 2, gl::FLOAT, 0);
+        VAO_MUT.with(&TEX_VERTEX_MUT, 1, 2, gl::FLOAT, 0);
+
         while !window.update() {
-            context.draw_option(&mut window, |context, window| {
+            context.draw_option(&mut window, |_, _| {
                 let program = &PROGRAM2D_ONE;
                 program.bind();
                 program.put_matrix_name(&Mat4::IDENTITY, "project_mat");
@@ -306,24 +301,22 @@ mod test {
                 program.put_texture(0, program.get_uniform("image"));
                 map.get_tex().bind_unit(0);
 
-                unsafe {
-                    VERTEX_MUT.sub(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
+                VERTEX_MUT.sub(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
 
-                    let index = map.get_uv(&"GINO".to_string()).unwrap();
-                    TEX_VERTEX_MUT.sub(
-                        &[
-                            index.x,
-                            index.y + index.h,
-                            index.x + index.w,
-                            index.y + index.h,
-                            index.x + index.w,
-                            index.y,
-                            index.x,
-                            index.y,
-                        ],
-                        0,
-                    );
-                }
+                let index = map.get_uv(&"GINO".to_string()).unwrap();
+                TEX_VERTEX_MUT.sub(
+                    &[
+                        index.x,
+                        index.y + index.h,
+                        index.x + index.w,
+                        index.y + index.h,
+                        index.x + index.w,
+                        index.y,
+                        index.x,
+                        index.y,
+                    ],
+                    0,
+                );
 
                 program.draw_rect(1);
             });
@@ -358,7 +351,7 @@ impl<T: Texture> Deref for TextureWrapper<T> {
 pub trait Texture {
     fn send_to_texture(&self);
     fn bind_unit(&self, id: i32);
-    fn send_date<T>(&self, date_mode: GLenum, date_type: GLenum, date: Vec<T>);
+    fn send_date<T>(&self, type_: TextureType, x: i32, y: i32, w: i32, h: i32, date: &[T]);
     fn delete(&self);
 }
 
@@ -376,23 +369,27 @@ impl Texture for Texture1D {
         self.send_to_texture();
     }
 
-    fn send_date<T>(&self, date_mode: GLenum, date_type: GLenum, date: Vec<T>) {
-        self.send_to_texture();
-        unsafe {
-            gl::TexSubImage1D(
-                gl::TEXTURE_1D,
-                0,
-                0,
-                date.len() as GLsizei,
-                date_mode,
-                date_type,
-                date.as_ptr() as *const c_void,
-            );
-        }
-    }
     fn delete(&self) {
         unsafe {
             gl::DeleteTextures(1, &self.texture as *const GLuint);
+        }
+    }
+
+    fn send_date<T>(&self, type_: TextureType, x: i32, y: i32, w: i32, h: i32, date: &[T]) {
+        self.send_to_texture();
+        let (format, type_) = type_.as_gl();
+        unsafe {
+            gl::TexSubImage2D(
+                gl::TEXTURE_1D,
+                0,
+                x,
+                y,
+                w,
+                h,
+                format,
+                type_,
+                date.as_ptr() as *const c_void,
+            );
         }
     }
 }
@@ -456,8 +453,22 @@ impl Texture for Texture2D {
         self.send_to_texture();
     }
 
-    fn send_date<T>(&self, date_mode: GLenum, date_type: GLenum, date: Vec<T>) {
-        todo!()
+    fn send_date<T>(&self, type_: TextureType, x: i32, y: i32, w: i32, h: i32, date: &[T]) {
+        self.send_to_texture();
+        let (inter, real) = type_.as_gl();
+        unsafe {
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                x,
+                y,
+                w,
+                h,
+                inter,
+                real,
+                date.as_ptr() as *const c_void,
+            );
+        }
     }
 
     fn delete(&self) {

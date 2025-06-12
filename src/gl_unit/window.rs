@@ -1,7 +1,6 @@
 use std::{
-    cell::{OnceCell, RefCell, UnsafeCell},
+    cell::{OnceCell, RefCell},
     hash::{Hash, Hasher},
-    sync::{Mutex, OnceLock},
 };
 
 use glfw::{

@@ -385,7 +385,7 @@ struct ProgramPass {
 
 pub struct ProgramGene {
     pub frames: HashMap<String, FrameBuffer>,
-    pub pass: Vec<(String, ProgramPass)>,
+    pass: Vec<(String, ProgramPass)>,
 }
 impl ProgramGene {
     pub fn new(json: &str, programs: &HashMap<String, Program>) -> Self {
