@@ -15,6 +15,9 @@ image = "*"
 rand = "*"
 guillotiere = "*"
 
+assimp = "*"
+
+
 
 [dependencies.glfw]
 version = "*"

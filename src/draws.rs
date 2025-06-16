@@ -1,10 +1,10 @@
+pub mod model;
 use crate::gl_unit::program::{Program, PROGRAM2D_ONE};
 use crate::gl_unit::texture::{Texture, TextureMap, UVindex};
-use crate::gl_unit::window::Window;
 use crate::gl_unit::{self, ConstBlend};
 use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use core::fmt::{Debug, Formatter};
-use glam::{vec2, vec3, vec4, Mat4, Vec3, Vec4Swizzles};
+use glam::{vec2, vec4, Mat4, Vec2, Vec3, Vec4Swizzles};
 
 // use rusty_spine::{
 //     AnimationState, AnimationStateData, Atlas, AttachmentType, Physics, Skeleton, SkeletonBinary,
@@ -17,93 +17,47 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use xml::reader::XmlEvent;
-static MOUSE_ACTION: f64 = 0.6f64;
-pub struct Camera {
-    pub location: Vec3,
-    pub look_off_x: f32,
-    pub look_off_y: f32,
-    pub look_at: Vec3,
-    pub fov: f32,
-    pub last_mouse_pos: (f64, f64),
-    pub ort: Mat4,
-    pub ort_asp: Mat4,
-    pub asp: f32,
-    pub get_mat_option: Option<Box<dyn Fn(&Camera) -> Mat4>>,
+
+pub fn window_ort(window_size: (i32, i32)) -> Mat4 {
+    let (w, h) = window_size;
+    let (w, h) = (w as f32 / 2f32, h as f32 / 2f32);
+    Mat4::orthographic_rh_gl(-w, w, -h, h, -1f32, 1f32)
 }
-impl Camera {
-    pub fn new(window: &Window) -> Self {
-        let (w, h) = window.window.get_size();
-        let asp = w as f32 / h as f32;
-        Camera {
-            location: vec3(0f32, 0f32, 0f32),
-            look_off_y: 0f32,
-            look_off_x: -90f32,
-            fov: 60f32.to_radians(),
-            last_mouse_pos: (0f64, 0f64),
-            look_at: vec3(0f32, 0f32, 0f32),
-            ort: Mat4::orthographic_rh_gl(
-                -(w as f32 / 2f32),
-                (w / 2) as f32,
-                -(h as f32 / 2f32),
-                (h / 2) as f32,
-                1f32,
-                -1f32,
-            ),
-            ort_asp: Mat4::orthographic_rh_gl(-asp, asp, -1f32, 1f32, 2f32, -2f32),
-            asp,
-            get_mat_option: None,
+pub fn window_ort_asp(window_size: (i32, i32)) -> Mat4 {
+    let (w, h) = window_size;
+    let asp = w as f32 / h as f32;
+    Mat4::orthographic_rh_gl(-asp, asp, -1f32, 1f32, 2f32, -2f32)
+}
+
+pub trait Camera {
+    fn as_mat(&self) -> Mat4;
+}
+pub struct Camera2D {
+    pub location: Vec2,
+}
+impl Camera2D {
+    pub fn new() -> Self {
+        Self {
+            location: vec2(0f32, 0f32),
         }
     }
-    pub fn set_mat_option<T: Fn(&Camera) -> Mat4 + 'static>(&mut self, func: T) {
-        self.get_mat_option = Some(Box::new(func))
+}
+impl Camera for Camera2D {
+    fn as_mat(&self) -> Mat4 {
+        Mat4::from_translation(self.location.extend(0f32))
     }
-    pub fn get_matrix_3d(&self) -> Mat4 {
-        let view_matrix = self.view();
-        let projection_matrix = self.project();
-
-        projection_matrix * view_matrix
+}
+pub struct Camera3D {
+    pub location: Vec3,
+}
+impl Camera3D {
+    pub fn new() -> Self {
+        todo!()
     }
-    pub fn get_matrix_2d_asp(&self) -> Mat4 {
-        self.ort_asp * self.view()
-    }
-    pub fn get_matrix_2d(&self) -> Mat4 {
-        self.ort * self.view()
-    }
-
-    pub fn get_matrix_ort(&self) -> Mat4 {
-        let view_matrix = self.ort;
-        let projection_matrix = self.project();
-
-        projection_matrix * view_matrix
-    }
-    pub fn project(&self) -> Mat4 {
-        let near_plane = -1f32;
-        let far_plane = 1f32;
-        Mat4::perspective_rh(self.fov, self.asp, near_plane, far_plane)
-    }
-    pub fn view(&self) -> Mat4 {
-        let cos_pitch = self.look_off_y.to_radians().cos();
-        let sin_pitch = self.look_off_y.to_radians().sin();
-        let cos_yaw = self.look_off_x.to_radians().cos();
-        let sin_yaw = self.look_off_x.to_radians().sin();
-        let lookat_x = cos_yaw * cos_pitch;
-        let lookat_y = sin_pitch;
-        let lookat_z = sin_yaw * cos_pitch;
-        let look_pos = self.location + vec3(lookat_x, lookat_y, lookat_z);
-        Mat4::look_at_rh(self.location, look_pos, vec3(0.0, 1.0, 0.0))
-    }
-    pub fn update_mouse(&mut self, window: &Window) {
-        let (x, y) = window.window.get_cursor_pos();
-        let (off_x, off_y) = (self.last_mouse_pos.0 - x, self.last_mouse_pos.1 - y);
-        self.look_off_x -= (off_x * MOUSE_ACTION) as f32;
-        self.look_off_y += (off_y * MOUSE_ACTION) as f32;
-        self.look_off_x %= 360f32;
-        self.look_off_y %= 360f32;
-        self.look_off_y = self.look_off_y.max(-80f32).min(80f32);
-        self.last_mouse_pos = (x, y);
-    }
-    pub fn smooth_to(&mut self, pos: Vec3, speed: f32, delta: f32) {
-        self.location -= (self.location - pos) * (speed * delta);
+}
+impl Camera for Camera3D {
+    fn as_mat(&self) -> Mat4 {
+        todo!()
     }
 }
 

@@ -6,6 +6,7 @@ use freetype::{self as ft, Bitmap, GlyphSlot};
 use glam::{vec3, Mat4};
 use std::collections::HashMap;
 
+use crate::draws::window_ort;
 use crate::gl_unit::program::Program;
 use crate::gl_unit::texture::{Texture, TextureMap, TextureWrapper};
 use crate::gl_unit::{self, view_port};
@@ -211,9 +212,6 @@ impl Font {
         let scale = scale as f32 / FT_TEXTURE_H as f32 * 2f32;
 
         let mut x_count = 0f32;
-        let (window_w, window_h) = window_size;
-        let window_w2 = window_w as f32 / 2f32;
-        let window_h2 = window_h as f32 / 2f32;
 
         let mut vertex: Vec<f32> = Vec::with_capacity(char_len * 4 * 4);
         let chars = self.get_char(str);
@@ -251,15 +249,13 @@ impl Font {
 
             x_count += (char.advance >> 6) as f32 * scale;
         }
+        let (window_w, window_h) = window_size;
         view_port(0, 0, window_w, window_h);
         gl_unit::const_blend(gl_unit::ConstBlend::Normal);
         FT_PROGRAM.put_texture(0, FT_PROGRAM.get_uniform("text"));
         self.char_tex.get_tex().bind_unit(0);
         FT_PROGRAM.bind();
-        FT_PROGRAM.put_matrix_name(
-            &(Mat4::orthographic_rh_gl(-window_w2, window_w2, -window_h2, window_h2, -1f32, 1f32)),
-            "project_mat",
-        );
+        FT_PROGRAM.put_matrix_name(&(window_ort(window_size)), "project_mat");
         FT_PROGRAM.put_matrix_name(&Mat4::from_translation(vec3(x, y, 0f32)), "model_mat");
         FT_PROGRAM.put_vec4(
             [color.0, color.1, color.2, color.3],

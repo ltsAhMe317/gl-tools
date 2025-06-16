@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use glam::{Mat4, Vec2};
 
 use crate::{
+    draws::window_ort,
     gl_unit::{
         program::{Program, PROGRAM2D_TWO},
         texture::{Texture, Texture2D, TextureMap, TextureParm, TextureType, TextureWrapper},
@@ -44,13 +45,7 @@ pub fn color(
     //radius
     todo!();
     UI_PROGRAM.bind();
-
-    let (w, h) = window_size;
-    let (w, h) = (w as f32 / 2f32, h as f32 / 2f32);
-    UI_PROGRAM.put_matrix_name(
-        &Mat4::orthographic_rh_gl(-w, w, -h, h, -1f32, 1f32),
-        "project",
-    );
+    UI_PROGRAM.put_matrix_name(&window_ort(window_size), "project");
 
     let (r, g, b, a) = (
         color.0 as f32 / 255.0,
@@ -74,12 +69,7 @@ pub fn texture_y_flip(window_size: (i32, i32), texture: &Texture2D, pos: Vec2, s
     program.bind();
     program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
 
-    let (w, h) = window_size;
-    let (w, h) = (w as f32 / 2f32, h as f32 / 2f32);
-    program.put_matrix_name(
-        &Mat4::orthographic_rh_gl(-w, w, -h, h, -1f32, 1f32),
-        "project_mat",
-    );
+    program.put_matrix_name(&window_ort(window_size), "project_mat");
     texture.bind_unit(0);
     program.put_texture(0, program.get_uniform("image"));
 
@@ -178,14 +168,12 @@ impl Frame {
                 fb.texture.as_ref().unwrap().bind_unit(0);
                 PROGRAM2D_TWO.put_texture(0, PROGRAM2D_TWO.get_uniform("image"));
 
-                unsafe {
-                    VAO_STATIC.bind();
-                    VERTEX_MUT.sub(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
-                    PROGRAM2D_TWO.bind();
-                    PROGRAM2D_TWO.put_matrix_name(&Mat4::IDENTITY, "project_mat");
-                    PROGRAM2D_TWO.put_matrix_name(&Mat4::IDENTITY, "model_mat");
-                    PROGRAM2D_TWO.draw_rect(1);
-                }
+                VAO_STATIC.bind();
+                VERTEX_MUT.sub(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
+                PROGRAM2D_TWO.bind();
+                PROGRAM2D_TWO.put_matrix_name(&Mat4::IDENTITY, "project_mat");
+                PROGRAM2D_TWO.put_matrix_name(&Mat4::IDENTITY, "model_mat");
+                PROGRAM2D_TWO.draw_rect(1);
             } else {
                 obj.draw_fast(window);
             }
