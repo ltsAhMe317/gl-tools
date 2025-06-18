@@ -15,8 +15,9 @@ image = "*"
 rand = "*"
 guillotiere = "*"
 
-assimp = "*"
-
+[dependencies.russimp]
+version="*"
+features = ["prebuilt"]
 
 
 [dependencies.glfw]
