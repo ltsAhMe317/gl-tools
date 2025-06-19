@@ -1,4 +1,4 @@
-pub use gl_unit::define::*;
+pub use gl_unit::buffer::*;
 
 pub mod draws;
 

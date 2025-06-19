@@ -14,12 +14,7 @@ array-init = "*"
 image = "*"
 rand = "*"
 guillotiere = "*"
-
-[dependencies.russimp]
-version="*"
-features = ["prebuilt"]
-
-
+paste = "*"
 [dependencies.glfw]
 version = "*"
 

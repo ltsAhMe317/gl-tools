@@ -1,3 +1,4 @@
+use define::*;
 use gl::types;
 use gl::types::{GLenum, GLint, GLintptr, GLsizei, GLsizeiptr, GLuint};
 use glam::IVec2;
@@ -11,6 +12,7 @@ use std::marker::PhantomData;
 use std::path::Path;
 use texture::{Texture, Texture2D, TextureWrapper};
 
+pub mod buffer;
 pub mod define;
 pub mod program;
 pub mod texture;
@@ -413,46 +415,10 @@ impl<T> Drop for VertexBuffer<T> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum Blend {
-    Zero,
-    One,
-    SrcColor,
-    DstColor,
-    OneMinusSrcColor,
-    OneMinusDstColor,
-    OneMinusSrcAlpha,
-    OneMinusDstAlpha,
-
-    SrcAlpha,
-    DstAlpha,
-
-    ConstColor,
-    ConstAlpha,
-}
-impl Blend {
-    pub const fn gl_enum(&self) -> GLenum {
-        match self {
-            Blend::Zero => gl::ZERO,
-            Blend::One => gl::ONE,
-            Blend::SrcColor => gl::SRC_COLOR,
-            Blend::DstColor => gl::DST_COLOR,
-            Blend::OneMinusSrcColor => gl::ONE_MINUS_SRC_COLOR,
-            Blend::OneMinusDstColor => gl::ONE_MINUS_DST_COLOR,
-            Blend::SrcAlpha => gl::SRC_ALPHA,
-            Blend::DstAlpha => gl::DST_ALPHA,
-            Blend::ConstColor => gl::CONSTANT_COLOR,
-            Blend::ConstAlpha => gl::CONSTANT_ALPHA,
-            Blend::OneMinusSrcAlpha => gl::ONE_MINUS_SRC_ALPHA,
-            Blend::OneMinusDstAlpha => gl::ONE_MINUS_DST_ALPHA,
-        }
-    }
-}
-
 fn blend(src: Blend, dst: Blend) {
     unsafe {
         gl::Enable(gl::BLEND);
-        gl::BlendFunc(src.gl_enum(), dst.gl_enum());
+        gl::BlendFunc(src.as_gl(), dst.as_gl());
     }
 }
 
@@ -475,7 +441,7 @@ pub enum ConstBlend {
 }
 
 impl ConstBlend {
-    pub const fn blend(&self) -> (Blend, Blend) {
+    pub const fn blend(self) -> (Blend, Blend) {
         match self {
             ConstBlend::Normal => (Blend::SrcAlpha, Blend::OneMinusSrcAlpha),
             ConstBlend::Additive => (Blend::SrcAlpha, Blend::One),
@@ -483,7 +449,7 @@ impl ConstBlend {
             ConstBlend::Screen => (Blend::One, Blend::OneMinusSrcColor),
             ConstBlend::Overlay => (Blend::One, Blend::OneMinusSrcAlpha),
             ConstBlend::Premultiplied => (Blend::One, Blend::OneMinusSrcAlpha),
-            ConstBlend::Custom(src, dst) => (*src, *dst),
+            ConstBlend::Custom(src, dst) => (src, dst),
             ConstBlend::SrcOnly => (Blend::One, Blend::Zero),
         }
     }
@@ -492,4 +458,10 @@ impl ConstBlend {
 pub fn const_blend(b: ConstBlend) {
     let (src, dst) = b.blend();
     blend(src, dst);
+}
+
+pub fn polygon_mode(face: Face, mode: PolygonMode) {
+    unsafe {
+        gl::PolygonMode(face.as_gl(), mode.as_gl());
+    }
 }

@@ -740,29 +740,6 @@ pub fn texture_parm(target: GLenum, parm: TextureParm) {
 //         gl::TexParameteri(target, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
 //     }
 //}
-const fn texture(id: i32) -> GLenum {
-    match id {
-        0 => gl::TEXTURE0,
-        1 => gl::TEXTURE1,
-        2 => gl::TEXTURE2,
-        3 => gl::TEXTURE3,
-        4 => gl::TEXTURE4,
-        5 => gl::TEXTURE5,
-        6 => gl::TEXTURE6,
-        7 => gl::TEXTURE7,
-        8 => gl::TEXTURE8,
-        9 => gl::TEXTURE9,
-        10 => gl::TEXTURE10,
-        11 => gl::TEXTURE11,
-        12 => gl::TEXTURE12,
-        13 => gl::TEXTURE13,
-        14 => gl::TEXTURE14,
-        15 => gl::TEXTURE15,
-        16 => gl::TEXTURE16,
-        17 => gl::TEXTURE17,
-        _ => panic!("out texture unit"),
-    }
-}
 fn bind_texture_unit(id: i32) {
     unsafe {
         gl::ActiveTexture(texture(id));
