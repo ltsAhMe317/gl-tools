@@ -5,8 +5,9 @@ use glam::{Mat4, Vec2};
 use crate::{
     draws::window_ort,
     gl_unit::{
+        define::TextureType,
         program::{Program, PROGRAM2D_TWO},
-        texture::{Texture, Texture2D, TextureMap, TextureParm, TextureType, TextureWrapper},
+        texture::{Texture, Texture2D, TextureMap, TextureParm, TextureWrapper},
         window::Window,
         FrameBuffer,
     },

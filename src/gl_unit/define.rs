@@ -64,28 +64,71 @@ macro_rules! gl_enum {
     (TextureUnit,$id:tt) => {
         gl::TEXTURE + $id
     };
+
+    (RGBA8) => {
+        (gl::RGBA, gl::UNSIGNED_BYTE)
+    };
+    (RGB8) => {
+        (gl::RGB, gl::UNSIGNED_BYTE)
+    };
+    (RED8) => {
+        (gl::RED, gl::UNSIGNED_BYTE)
+    };
+    (RGBA16) => {
+        (gl::RGBA, gl::UNSIGNED_SHORT)
+    };
+    (RGB16) => {
+        (gl::RGB, gl::UNSIGNED_SHORT)
+    };
+    (RED16) => {
+        (gl::RED, gl::UNSIGNED_SHORT)
+    };
+    (RGBA32) => {
+        (gl::RGBA, gl::FLOAT)
+    };
+    (RGB32) => {
+        (gl::RGB, gl::FLOAT)
+    };
+    (RED32) => {
+        (gl::RED, gl::FLOAT)
+    };
 }
 
 macro_rules! enums_creater {
-    ($($name:ident { $($var:ident),* $(,)?})*)=>{
+        ($($name:ident {$($var:ident),* $(,)?})*)=>{
         $(
-            pub enum $name {
+            pub enum $name{
                 $($var,)*
             }
-
-        impl $name {
-           pub const fn as_gl(self) ->GLenum{
-                match self {
-                    $(Self::$var => gl_enum!($var),)*
+            impl $name{
+                pub const fn as_gl(self)->GLenum{
+                    match self{
+                        $(Self::$var => gl_enum!($var),)*
+                    }
                 }
             }
-        }
-
         )*
     };
 }
+macro_rules! two_enums_creater {
+        ($($name:ident {$($var:ident),* $(,)?})*)=>{
+        $(
+            pub enum $name{
+                $($var,)*
+            }
+            impl $name{
+                pub const fn as_gl(self)->(GLenum,GLenum){
+                    match self{
+                        $(Self::$var => gl_enum!($var),)*
+                    }
+                }
+            }
+        )*
+    };
+}
+
 macro_rules! enums_index_creater {
-    ($($name:ident { $($var:ident),* $(,)?})*) => {
+    ($($name:ident { $($var:ident),* })*) => {
         $(
             pub enum $name {
                 $($var(u32),)*
@@ -129,8 +172,21 @@ enums_creater! {
         Back
     }
 
-}
 
+}
+two_enums_creater! {
+    TextureType {
+        RGBA8,
+        RGB8,
+        RED8,
+        RGBA16,
+        RGB16,
+        RED16,
+        RGBA32,
+        RGB32,
+        RED32,
+    }
+}
 enums_index_creater! {
     Attachment{
         Color
@@ -138,4 +194,5 @@ enums_index_creater! {
     Texture{
         Unit
     }
+
 }

@@ -18,8 +18,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::{TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT};
 
+use super::define::{self, TextureType};
 use super::{program::PROGRAM2D_TWO, ConstBlend, FrameBuffer};
-
 const TEXTURE_MAP_MAX: i32 = 480;
 const TEXTURE_MAP_SPLIT: i32 = 1;
 
@@ -229,10 +229,6 @@ mod test {
 
         let tex_list = {
             let mut map = Vec::new();
-            // let read_dir = fs::read_dir(Path::new(
-            //     "E:\\b\\pixiv\\jcm2\\#ロリ Rapidin 2021 vol.4 - jcm2的插画 - pixiv",
-            // ))
-            // .unwrap();
             let read_dir = fs::read_dir(Path::new(
                 "E:\\RustroverProjects\\bone_static\\Res\\Texture",
             ))
@@ -267,10 +263,6 @@ mod test {
             gl::Enable(gl::TEXTURE_2D);
         }
         let mut what = Vec::new();
-        // let tex = Texture2D::load_path(
-        //     Path::new("E:\\b\\pixiv\\啦啦啦的收藏 - pixiv\\26533633_p0.png"),
-        //     TextureParm::new(),
-        // );
         for (str, tex) in tex_list.iter() {
             what.push((str.to_string(), tex.as_ref()));
         }
@@ -351,11 +343,13 @@ impl<T: Texture> Deref for TextureWrapper<T> {
 
 pub trait Texture {
     fn send_to_texture(&self);
-    fn bind_unit(&self, id: i32);
+    fn bind_unit(&self, id: u32) {
+        active_texture_unit(define::Texture::Unit(id));
+        self.send_to_texture();
+    }
     fn send_date<T>(&self, type_: TextureType, x: i32, y: i32, w: i32, h: i32, date: &[T]);
     fn delete(&self);
 }
-
 #[derive(Clone)]
 pub struct Texture1D {
     pub texture: GLuint,
@@ -364,10 +358,6 @@ pub struct Texture1D {
 impl Texture for Texture1D {
     fn send_to_texture(&self) {
         unsafe { gl::BindTexture(gl::TEXTURE_1D, self.texture) }
-    }
-    fn bind_unit(&self, id: i32) {
-        bind_texture_unit(id);
-        self.send_to_texture();
     }
 
     fn delete(&self) {
@@ -401,9 +391,10 @@ impl Texture1D {
 
     pub fn load<T>(raw: Option<&[T]>, mode: TextureType, size: u32, parm: TextureParm) -> Self {
         if let Some(raw) = raw {
-            Self::new(raw.as_ptr(), mode, size, parm);
+            Self::new(raw.as_ptr(), mode, size, parm)
+        } else {
+            Self::new(null::<T>(), mode, size, parm)
         }
-        Self::new(null::<T>(), mode, size, parm)
     }
 
     fn new<T>(raw: *const T, mode: TextureType, size: u32, parm: TextureParm) -> Self {
@@ -447,11 +438,6 @@ impl Texture for Texture2D {
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.texture);
         }
-    }
-
-    fn bind_unit(&self, id: i32) {
-        bind_texture_unit(id);
-        self.send_to_texture();
     }
 
     fn send_date<T>(&self, type_: TextureType, x: i32, y: i32, w: i32, h: i32, date: &[T]) {
@@ -622,36 +608,6 @@ impl Texture2D {
 }
 
 #[derive(Clone, Copy)]
-pub enum TextureType {
-    RGBA8,
-    RGB8,
-    RED8,
-    RGBA16,
-    RGB16,
-    RED16,
-    RGBA32,
-    RGB32,
-    RED32,
-}
-
-//fmt,type
-impl TextureType {
-    pub const fn as_gl(&self) -> (GLenum, GLenum) {
-        match self {
-            TextureType::RGBA8 => (gl::RGBA, gl::UNSIGNED_BYTE),
-            TextureType::RGB8 => (gl::RGB, gl::UNSIGNED_BYTE),
-            TextureType::RED8 => (gl::RED, gl::UNSIGNED_BYTE),
-            TextureType::RGBA16 => (gl::RGBA, gl::UNSIGNED_SHORT),
-            TextureType::RGB16 => (gl::RGB, gl::UNSIGNED_SHORT),
-            TextureType::RED16 => (gl::RED, gl::UNSIGNED_SHORT),
-            TextureType::RGBA32 => (gl::RGBA, gl::FLOAT),
-            TextureType::RGB32 => (gl::RGB, gl::FLOAT),
-            TextureType::RED32 => (gl::RED, gl::FLOAT),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
 pub struct TextureParm {
     min_filter: GLenum,
     mag_filter: GLenum,
@@ -740,8 +696,8 @@ pub fn texture_parm(target: GLenum, parm: TextureParm) {
 //         gl::TexParameteri(target, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
 //     }
 //}
-fn bind_texture_unit(id: i32) {
+fn active_texture_unit(id: define::Texture) {
     unsafe {
-        gl::ActiveTexture(texture(id));
+        gl::ActiveTexture(id.as_gl());
     }
 }
