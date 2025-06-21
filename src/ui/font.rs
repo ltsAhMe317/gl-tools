@@ -24,7 +24,7 @@ const FT_TEXTURE_H: u32 = 64;
 #[derive(Clone, Copy)]
 struct Character {
     bearing: (i32, i32),
-    advance: i32,
+    advance: i64,
 }
 impl Character {
     pub fn new(char: usize, font: &Font) -> (Self, TextureWrapper<Texture2D>) {
