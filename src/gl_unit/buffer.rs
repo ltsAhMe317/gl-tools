@@ -93,7 +93,6 @@ impl<T: TypeGL> Buffer<T> {
         unsafe {
             gl::GenBuffers(1, &mut id as *mut GLuint);
         }
-
         let this = Self {
             target,
             id,
@@ -109,7 +108,6 @@ impl<T: TypeGL> Buffer<T> {
                 usage.as_gl(),
             );
         }
-        flush();
         this.unbind_target();
         this
     }
