@@ -270,7 +270,7 @@ setter_gen! {
         once_size: i32,
         is_normalized: bool,
         stride: i32,
-        pointer: u32
+        pointer: usize
     }
 }
 impl VertexArrayAttribPointerGen {

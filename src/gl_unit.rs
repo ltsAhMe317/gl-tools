@@ -349,10 +349,9 @@ impl VertexArray {
                 T::as_gl(),
                 if is_normalized { gl::TRUE } else { gl::FALSE },
                 stride,
-                &pointer as *const u32 as *const c_void,
+                pointer as *const c_void,
             );
         }
-        date.unbind_target();
     }
     pub fn bind(&self) {
         unsafe {
