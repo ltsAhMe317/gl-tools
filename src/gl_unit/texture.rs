@@ -9,7 +9,10 @@ use std::{
     ptr::null,
 };
 
-use gl::types::{GLenum, GLint, GLsizei, GLuint};
+use gl::{
+    types::{GLenum, GLint, GLsizei, GLuint},
+    Finish,
+};
 use glam::{vec2, Mat4, Vec2};
 use guillotiere::*;
 use image::{DynamicImage, EncodableLayout, ImageBuffer, Rgba};
@@ -18,7 +21,10 @@ use std::fmt::{Debug, Formatter};
 
 use crate::{TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT};
 
-use super::define::{self, TextureType};
+use super::{
+    define::{self, Filter, TextureParm, TextureType, VertexArrayAttribPointerGen},
+    finish,
+};
 use super::{program::PROGRAM2D_TWO, ConstBlend, FrameBuffer};
 const TEXTURE_MAP_MAX: i32 = 480;
 const TEXTURE_MAP_SPLIT: i32 = 1;
@@ -70,7 +76,7 @@ impl TextureMap<String> {
                         let file_name = file_name[..file_name.rfind('.').unwrap()].to_string();
                         let texture = TextureWrapper(Texture2D::load_path(
                             file.path().as_path(),
-                            TextureParm::new(),
+                            define::TextureParm::new(),
                         ));
                         texs.push((file_name, texture));
                     }
@@ -92,9 +98,9 @@ impl<T: Hash + Eq> TextureMap<T> {
             w as u32,
             h as u32,
             TextureType::RGBA8,
-            TextureParm::new()
-                .min_filter(gl::LINEAR)
-                .mag_filter(gl::LINEAR),
+            define::TextureParm::new()
+                .min_filter(Filter::Linear)
+                .mag_filter(Filter::Linear),
         ));
         let mut frame = FrameBuffer::new();
         frame.link_texture(texture, gl::COLOR_ATTACHMENT0);
@@ -111,8 +117,9 @@ impl<T: Hash + Eq> TextureMap<T> {
         y_flip: bool,
     ) -> Result<(), &'static str> {
         if vec.is_empty() {
-            return Err("textures is empty");
+            return Ok(());
         }
+        println!("add");
         crate::gl_unit::const_blend(ConstBlend::SrcOnly);
         self.frame.bind(gl::FRAMEBUFFER);
         self.frame.view_port();
@@ -126,16 +133,16 @@ impl<T: Hash + Eq> TextureMap<T> {
         program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
         program.put_texture(0, program.get_uniform("image"));
 
-        // VAO_MUT.as_ref().unwrap().bind();
-        if y_flip {
-            VAO_MUT.with(&TEX_VERTEX_YFLIP_STATIC, 1, 2, gl::FLOAT, 0);
-        } else {
-            VAO_MUT.with(&TEX_VERTEX_STATIC, 1, 2, gl::FLOAT, 0);
-        }
-        VAO_MUT.with(&VERTEX_MUT, 0, 2, gl::FLOAT, 0);
-
+        VAO_MUT.bind_set(
+            if y_flip {
+                &TEX_VERTEX_YFLIP_STATIC
+            } else {
+                &TEX_VERTEX_STATIC
+            },
+            VertexArrayAttribPointerGen::new::<f32>(1, 2),
+        );
+        VAO_MUT.bind_set(&VERTEX_MUT, VertexArrayAttribPointerGen::new::<f32>(0, 2));
         let mut uv_list = HashMap::new();
-
         for (name, texture) in vec.into_iter() {
             let texture = texture.as_ref();
             let uv;
@@ -163,9 +170,7 @@ impl<T: Hash + Eq> TextureMap<T> {
                     h: texture.h as f32 / TEXTURE_MAP_MAX as f32,
                 };
 
-                texture.bind_unit(0);
-
-                VERTEX_MUT.sub(
+                VERTEX_MUT.sub_data(
                     &[
                         uv.x,
                         uv.y + uv.h,
@@ -178,6 +183,8 @@ impl<T: Hash + Eq> TextureMap<T> {
                     ],
                     0,
                 );
+                texture.bind_unit(0);
+                // println!("vao bind:{}",crate::gl_unit::debug::now_vao_id());
 
                 program.draw_rect(1);
             }
@@ -185,10 +192,12 @@ impl<T: Hash + Eq> TextureMap<T> {
         }
         FrameBuffer::unbind();
         self.index.extend(uv_list);
+
         Ok(())
     }
 
     pub fn clear(&mut self) {
+        dbg!("clear?");
         self.allocator.clear();
         self.index.clear();
     }
@@ -212,6 +221,7 @@ mod test {
 
     use crate::{
         gl_unit::{
+            define::{TextureParm, VertexArrayAttribPointerGen},
             program::PROGRAM2D_ONE,
             texture::{Texture, TextureWrapper},
             window::Window,
@@ -220,7 +230,7 @@ mod test {
         TEX_VERTEX_MUT, VAO_MUT, VERTEX_MUT,
     };
 
-    use super::{Texture2D, TextureMap, TextureParm};
+    use super::{Texture2D, TextureMap};
 
     #[test]
     fn texture_map() {
@@ -282,8 +292,11 @@ mod test {
         window.view_port();
         window.window.show();
 
-        VAO_MUT.with(&VERTEX_MUT, 0, 2, gl::FLOAT, 0);
-        VAO_MUT.with(&TEX_VERTEX_MUT, 1, 2, gl::FLOAT, 0);
+        VAO_MUT.bind_set(&VERTEX_MUT, VertexArrayAttribPointerGen::new::<f32>(0, 2));
+        VAO_MUT.bind_set(
+            &TEX_VERTEX_MUT,
+            VertexArrayAttribPointerGen::new::<f32>(1, 2),
+        );
 
         while !window.update() {
             context.draw_option(&mut window, |_, _| {
@@ -294,10 +307,10 @@ mod test {
                 program.put_texture(0, program.get_uniform("image"));
                 map.get_tex().bind_unit(0);
 
-                VERTEX_MUT.sub(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
+                VERTEX_MUT.sub_data(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
 
                 let index = map.get_uv(&"GINO".to_string()).unwrap();
-                TEX_VERTEX_MUT.sub(
+                TEX_VERTEX_MUT.sub_data(
                     &[
                         index.x,
                         index.y + index.h,
@@ -386,7 +399,7 @@ impl Texture for Texture1D {
 }
 impl Texture1D {
     pub fn new_size(size: u32) -> Self {
-        Self::new::<u8>(null(), TextureType::RED8, size, BASE_PARM)
+        Self::new::<u8>(null(), TextureType::RED8, size, TextureParm::new())
     }
 
     pub fn load<T>(raw: Option<&[T]>, mode: TextureType, size: u32, parm: TextureParm) -> Self {
@@ -607,70 +620,21 @@ impl Texture2D {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct TextureParm {
-    min_filter: GLenum,
-    mag_filter: GLenum,
-    wrap_s: GLenum,
-    wrap_t: GLenum,
-
-    once_size: i32,
-}
-impl Default for TextureParm {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TextureParm {
-    pub const fn min_filter(&self, value: GLenum) -> Self {
-        let mut edit = *self;
-        edit.min_filter = value;
-        edit
-    }
-
-    pub const fn mag_filter(&self, value: GLenum) -> Self {
-        let mut edit = *self;
-        edit.mag_filter = value;
-        edit
-    }
-
-    pub const fn warp_s(&self, value: GLenum) -> Self {
-        let mut edit = *self;
-        edit.wrap_s = value;
-        edit
-    }
-
-    pub const fn warp_t(&self, value: GLenum) -> Self {
-        let mut edit = *self;
-        edit.wrap_t = value;
-        edit
-    }
-    pub const fn once_size(&self, value: i32) -> Self {
-        let mut edit = *self;
-        edit.once_size = value;
-        edit
-    }
-    pub const fn new() -> Self {
-        Self {
-            min_filter: gl::NEAREST,
-            mag_filter: gl::NEAREST,
-            wrap_s: gl::CLAMP_TO_BORDER,
-            wrap_t: gl::CLAMP_TO_BORDER,
-            once_size: 4,
-        }
-    }
-}
-
-pub static BASE_PARM: TextureParm = TextureParm::new();
-
 pub fn texture_parm(target: GLenum, parm: TextureParm) {
     unsafe {
-        gl::TexParameteri(target, gl::TEXTURE_MIN_FILTER, parm.min_filter as GLint);
-        gl::TexParameteri(target, gl::TEXTURE_MAG_FILTER, parm.mag_filter as GLint);
-        gl::TexParameteri(target, gl::TEXTURE_WRAP_S, parm.wrap_s as GLint);
-        gl::TexParameteri(target, gl::TEXTURE_WRAP_T, parm.wrap_t as GLint);
-        gl::PixelStorei(gl::UNPACK_ALIGNMENT, parm.once_size);
+        gl::TexParameteri(
+            target,
+            gl::TEXTURE_MIN_FILTER,
+            parm.min_filter.as_gl() as GLint,
+        );
+        gl::TexParameteri(
+            target,
+            gl::TEXTURE_MAG_FILTER,
+            parm.mag_filter.as_gl() as GLint,
+        );
+        gl::TexParameteri(target, gl::TEXTURE_WRAP_S, parm.wrap_s.as_gl() as GLint);
+        gl::TexParameteri(target, gl::TEXTURE_WRAP_T, parm.wrap_t.as_gl() as GLint);
+        gl::PixelStorei(gl::UNPACK_ALIGNMENT, parm.once_load_size);
     }
 }
 

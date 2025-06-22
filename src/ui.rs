@@ -5,9 +5,9 @@ use glam::{Mat4, Vec2};
 use crate::{
     draws::window_ort,
     gl_unit::{
-        define::TextureType,
+        define::{TextureParm, TextureType, VertexArrayAttribPointerGen},
         program::{Program, PROGRAM2D_TWO},
-        texture::{Texture, Texture2D, TextureMap, TextureParm, TextureWrapper},
+        texture::{Texture, Texture2D, TextureMap, TextureWrapper},
         window::Window,
         FrameBuffer,
     },
@@ -59,7 +59,7 @@ pub fn color(
     let (x, y) = pos;
     let (w, h) = size;
     VAO_STATIC.bind();
-    VERTEX_MUT.sub(&[x, y, x + w, y, x + w, y - h, x, y - h], 0);
+    VERTEX_MUT.sub_data(&[x, y, x + w, y, x + w, y - h, x, y - h], 0);
 
     UI_PROGRAM.draw_rect(1);
 }
@@ -75,10 +75,13 @@ pub fn texture_y_flip(window_size: (i32, i32), texture: &Texture2D, pos: Vec2, s
     program.put_texture(0, program.get_uniform("image"));
 
     let (x, y, w, h) = (pos.x, pos.y, size.x, size.y);
-    VERTEX_MUT.sub(&[x, y, x + w, y, x + w, y - h, x, y - h], 0);
+    VERTEX_MUT.sub_data(&[x, y, x + w, y, x + w, y - h, x, y - h], 0);
 
-    VAO_MUT.with(&TEX_VERTEX_YFLIP_STATIC, 1, 2, gl::FLOAT, 0);
-    VAO_MUT.with(&VERTEX_MUT, 0, 2, gl::FLOAT, 0);
+    VAO_MUT.bind_set(
+        &TEX_VERTEX_YFLIP_STATIC,
+        VertexArrayAttribPointerGen::new::<f32>(1, 2),
+    );
+    VAO_MUT.bind_set(&VERTEX_MUT, VertexArrayAttribPointerGen::new::<f32>(0, 2));
 
     program.draw_rect(1);
 }
@@ -91,7 +94,7 @@ pub fn texture_map(texture: &TextureMap<String>, name: &str, pos: Vec2) {
 mod test {
     use crate::gl_unit::{window::Window, GLcontext};
 
-    use super::{color, font::with_font};
+    use super::color;
 
     #[test]
     fn ui_color() {
@@ -100,17 +103,6 @@ mod test {
         window.window.show();
         while !window.update() {
             context.draw_option(&mut window, |_, window| {
-                with_font(|font| {
-                    font.draw(
-                        "为什么不显示啊！",
-                        window.window.get_size(),
-                        0f32,
-                        0f32,
-                        16,
-                        (1f32, 1f32, 1f32, 1f32),
-                    );
-                });
-
                 color(
                     window.window.get_size(),
                     (255, 0, 255, 255),
@@ -170,7 +162,7 @@ impl Frame {
                 PROGRAM2D_TWO.put_texture(0, PROGRAM2D_TWO.get_uniform("image"));
 
                 VAO_STATIC.bind();
-                VERTEX_MUT.sub(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
+                VERTEX_MUT.sub_data(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
                 PROGRAM2D_TWO.bind();
                 PROGRAM2D_TWO.put_matrix_name(&Mat4::IDENTITY, "project_mat");
                 PROGRAM2D_TWO.put_matrix_name(&Mat4::IDENTITY, "model_mat");

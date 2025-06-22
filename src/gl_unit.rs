@@ -8,17 +8,37 @@ use image::ImageFormat;
 use core::panic;
 
 use std::ffi::c_void;
-use std::marker::PhantomData;
 use std::path::Path;
+use std::ptr::null;
 use texture::{Texture, Texture2D, TextureWrapper};
 
 pub mod buffer;
+pub mod debug;
 pub mod define;
 pub mod program;
 pub mod texture;
 pub mod window;
 
 use window::Window;
+
+use crate::{Buffer, TypeGL};
+extern "system" fn debug_callback(
+    source: gl::types::GLenum,
+    gltype: gl::types::GLenum,
+    id: gl::types::GLuint,
+    severity: gl::types::GLenum,
+    length: gl::types::GLsizei,
+    message: *const gl::types::GLchar,
+    userParam: *mut std::ffi::c_void,
+) {
+    let msg = unsafe { std::ffi::CStr::from_ptr(message).to_string_lossy() };
+
+    if severity == gl::DEBUG_SEVERITY_HIGH {
+        eprintln!("[OpenGL HIGH] {}", msg);
+    } else {
+        println!("[OpenGL] {}", msg);
+    }
+}
 
 pub fn view_port(x: i32, y: i32, w: i32, h: i32) {
     unsafe {
@@ -54,6 +74,11 @@ impl GLcontext {
                 gl::Viewport(pos_x as GLint, 0, width as GLsizei, resize_h as GLsizei);
             }
         }
+        unsafe {
+            gl::Enable(gl::DEBUG_OUTPUT);
+            gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
+            gl::DebugMessageCallback(Some(debug_callback), null());
+        }
         Self {}
     }
     pub fn clear(&self, buffer: &FrameBuffer) {
@@ -61,7 +86,7 @@ impl GLcontext {
         unsafe {
             gl::ClearBufferfv(gl::DEPTH, id, CLEAN_COLOR.as_ptr());
             gl::ClearBufferfv(gl::COLOR, id, CLEAN_COLOR.as_ptr());
-            gl::ClearBufferfv(gl::STENCIL, id, CLEAN_COLOR.as_ptr());
+            // gl::ClearBufferfv(gl::STENCIL_BUFFER_BIT, id, CLEAN_COLOR.as_ptr());
         }
     }
     pub fn base_clear(&self) {
@@ -252,26 +277,26 @@ impl FrameBuffer {
         )
     }
 
-    pub fn get_now_bind_id() -> GLint {
-        unsafe {
-            let mut id: GLint = 0;
-            gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut id as *mut GLint);
-            id
-        }
-    }
-    pub fn get_now_attachment_id(attachment: GLenum) -> GLint {
-        // self.bind(gl::FRAMEBUFFER);
-        unsafe {
-            let mut id: GLint = 0;
-            gl::GetFramebufferAttachmentParameteriv(
-                gl::FRAMEBUFFER,
-                attachment,
-                gl::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME,
-                &mut id as *mut GLint,
-            );
-            id
-        }
-    }
+    // pub fn get_now_bind_id() -> GLint {
+    //     unsafe {
+    //         let mut id: GLint = 0;
+    //         gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut id as *mut GLint);
+    //         id
+    //     }
+    // }
+    // pub fn get_now_attachment_id(attachment: GLenum) -> GLint {
+    //     // self.bind(gl::FRAMEBUFFER);
+    //     unsafe {
+    //         let mut id: GLint = 0;
+    //         gl::GetFramebufferAttachmentParameteriv(
+    //             gl::FRAMEBUFFER,
+    //             attachment,
+    //             gl::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME,
+    //             &mut id as *mut GLint,
+    //         );
+    //         id
+    //     }
+    // }
 }
 
 impl Drop for FrameBuffer {
@@ -292,7 +317,6 @@ impl Default for VertexArray {
         Self::new()
     }
 }
-
 impl VertexArray {
     pub fn new() -> Self {
         let mut id = 0;
@@ -301,20 +325,34 @@ impl VertexArray {
         }
         Self { array_id: id }
     }
-    pub fn with<T>(
-        &self,
-        date: &VertexBuffer<T>,
-        index: types::GLuint,
-        once_count: types::GLint,
-        date_type: types::GLenum,
-        after: usize,
-    ) {
-        self.bind_with(date);
-        date.with(index, once_count, date_type, after);
-    }
-    pub fn bind_with<T>(&self, date: &VertexBuffer<T>) {
+
+    pub fn bind_set<T: TypeGL>(&self, date: &Buffer<T>, pointer: VertexArrayAttribPointerGen) {
+        if date.target != BufferTarget::Vertex {
+            panic!("[VAO err]buffer target != vertex");
+        }
         self.bind();
-        date.bind();
+        date.bind_target();
+
+        let (index, once_size, is_normalized, stride, pointer) = (
+            pointer.index,
+            pointer.once_size,
+            pointer.is_normalized,
+            pointer.stride,
+            pointer.pointer,
+        );
+
+        unsafe {
+            gl::EnableVertexAttribArray(index);
+            gl::VertexAttribPointer(
+                index,
+                once_size,
+                T::as_gl(),
+                if is_normalized { gl::TRUE } else { gl::FALSE },
+                stride,
+                &pointer as *const u32 as *const c_void,
+            );
+        }
+        date.unbind_target();
     }
     pub fn bind(&self) {
         unsafe {
@@ -325,92 +363,10 @@ impl VertexArray {
 
 impl Drop for VertexArray {
     fn drop(&mut self) {
+        println!("delete vao");
         unsafe {
             gl::BindVertexArray(0);
             gl::DeleteVertexArrays(1, &self.array_id as *const GLuint);
-        }
-    }
-}
-
-pub struct VertexBuffer<T> {
-    date_id: GLuint,
-    target: GLenum,
-    type_const: PhantomData<T>,
-    size: usize,
-}
-
-impl<T> VertexBuffer<T> {
-    pub fn new(target: GLenum, vertex: &[T], size: usize, save_mod: GLenum) -> Self {
-        let mut id = 0;
-        unsafe {
-            gl::GenBuffers(1, &mut id);
-            gl::BindBuffer(target, id);
-            gl::BufferData(
-                target,
-                (size * std::mem::size_of::<T>()) as GLsizeiptr,
-                vertex.as_ptr() as *const c_void,
-                save_mod,
-            );
-        }
-        VertexBuffer {
-            date_id: id,
-            target,
-            type_const: PhantomData,
-            size: vertex.len(),
-        }
-    }
-    pub fn sub(&self, vertex: &[T], offset: GLint) {
-        if self.size < vertex.len() {
-            panic!("vec's len bigger than vertex")
-        }
-        self.bind();
-        unsafe {
-            gl::BufferSubData(
-                self.target,
-                offset as GLintptr,
-                std::mem::size_of_val(vertex) as GLsizeiptr,
-                vertex.as_ptr() as *const c_void,
-            )
-        }
-    }
-    pub fn new_array(vertex: &[T], save_mod: GLenum) -> Self {
-        Self::new(gl::ARRAY_BUFFER, vertex, vertex.len(), save_mod)
-    }
-    pub fn new_array_size(vertex: &[T], size: usize, save_mod: GLenum) -> Self {
-        Self::new(gl::ARRAY_BUFFER, vertex, size, save_mod)
-    }
-    pub fn with(
-        &self,
-        index: types::GLuint,
-        once_count: types::GLint,
-        date_type: types::GLenum,
-        after: usize,
-    ) {
-        self.bind();
-        unsafe {
-            gl::EnableVertexAttribArray(index);
-            gl::VertexAttribPointer(
-                index,
-                once_count,
-                date_type,
-                gl::FALSE,
-                (size_of::<T>() as i32) * once_count,
-                after as *const c_void,
-            );
-        }
-    }
-    pub fn bind(&self) {
-        unsafe {
-            gl::BindBuffer(self.target, self.date_id);
-        }
-    }
-}
-
-impl<T> Drop for VertexBuffer<T> {
-    fn drop(&mut self) {
-        unsafe {
-            gl::BindBuffer(self.target, 0);
-            gl::DeleteBuffers(1, &self.date_id as *const GLuint);
         }
     }
 }
@@ -463,5 +419,16 @@ pub fn const_blend(b: ConstBlend) {
 pub fn polygon_mode(face: Face, mode: PolygonMode) {
     unsafe {
         gl::PolygonMode(face.as_gl(), mode.as_gl());
+    }
+}
+
+pub fn flush() {
+    unsafe {
+        gl::Flush();
+    }
+}
+pub fn finish() {
+    unsafe {
+        gl::Finish();
     }
 }

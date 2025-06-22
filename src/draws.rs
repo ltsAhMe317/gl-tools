@@ -1,4 +1,5 @@
 pub mod model;
+use crate::gl_unit::define::VertexArrayAttribPointerGen;
 use crate::gl_unit::program::{Program, PROGRAM2D_ONE};
 use crate::gl_unit::texture::{Texture, TextureMap, UVindex};
 use crate::gl_unit::{self, ConstBlend};
@@ -712,8 +713,11 @@ impl ReanimPlayer {
         //render
         gl_unit::const_blend(ConstBlend::Normal);
         program.bind();
-        VAO_MUT.with(&VERTEX_BIG_MUT, 0, 4, gl::FLOAT, 0);
-        VERTEX_BIG_MUT.sub(&vertexs, 0);
+        VAO_MUT.bind_set(
+            &VERTEX_BIG_MUT,
+            VertexArrayAttribPointerGen::new::<f32>(0, 4),
+        );
+        VERTEX_BIG_MUT.sub_data(&vertexs, 0);
         program.put_texture(0, program.get_uniform("image"));
         program.put_matrix(&(mat4), program.get_uniform("model_mat"));
         let (w, h) = window_size;

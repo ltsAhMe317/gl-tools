@@ -1,5 +1,7 @@
 use gl::types::GLenum;
 use paste::paste;
+
+use crate::TypeGL;
 macro_rules! gl_enum {
     (Zero) => {
         gl::ZERO
@@ -59,10 +61,10 @@ macro_rules! gl_enum {
         gl::TEXTURE_1D
     };
     (AttachmentColor,$id:tt) => {
-        gl::COLOR_ATTACHMENT0 + $id
+        (gl::COLOR_ATTACHMENT0 + $id)
     };
     (TextureUnit,$id:tt) => {
-        gl::TEXTURE + $id
+        (gl::TEXTURE0 + $id)
     };
 
     (RGBA8) => {
@@ -92,11 +94,46 @@ macro_rules! gl_enum {
     (RED32) => {
         (gl::RED, gl::FLOAT)
     };
+    (Vertex) => {
+        gl::ARRAY_BUFFER
+    };
+
+    (Element) => {
+        gl::ELEMENT_ARRAY_BUFFER
+    };
+    (Static) => {
+        gl::STATIC_DRAW
+    };
+    (Stream) => {
+        gl::STREAM_DRAW
+    };
+    (Dynamic) => {
+        gl::DYNAMIC_DRAW
+    };
+    (Nearest) => {
+        gl::NEAREST
+    };
+    (Linear) => {
+        gl::LINEAR
+    };
+    (Repeat) => {
+        gl::REPEAT
+    };
+    (MirroredRepeat) => {
+        gl::MIRRORED_REPEAT
+    };
+    (ClampEdge) => {
+        gl::CLAMP_TO_EDGE
+    };
+    (ClampBorder) => {
+        gl::CLAMP_TO_BORDER
+    };
 }
 
 macro_rules! enums_creater {
         ($($name:ident {$($var:ident),* $(,)?})*)=>{
         $(
+            #[derive(Clone,Copy,PartialEq)]
             pub enum $name{
                 $($var,)*
             }
@@ -128,7 +165,7 @@ macro_rules! two_enums_creater {
 }
 
 macro_rules! enums_index_creater {
-    ($($name:ident { $($var:ident),* })*) => {
+    ($($name:ident { $($var:ident),* $(,)?})*) => {
         $(
             pub enum $name {
                 $($var(u32),)*
@@ -146,7 +183,21 @@ macro_rules! enums_index_creater {
 
     };
 }
-
+macro_rules! setter_gen {
+    ($name:ident{$($var:ident:$var_type:ty),* }) => {
+        pub struct $name {
+            $(pub $var:$var_type,)*
+        }
+        impl $name {
+            $(
+                pub fn $var(mut self,value:$var_type)->Self{
+                    self.$var = value;
+                    self
+                }
+            )*
+        }
+    };
+}
 enums_creater! {
     Blend {
         Zero,
@@ -171,8 +222,25 @@ enums_creater! {
         Front,
         Back
     }
-
-
+    BufferTarget{
+        Vertex,
+        Element
+    }
+    BufferUsage{
+        Dynamic,
+        Stream,
+        Static
+    }
+    Filter{
+        Linear,
+        Nearest
+    }
+    TextureWarpMode{
+        Repeat,
+        MirroredRepeat,
+        ClampBorder,
+        ClampEdge
+    }
 }
 two_enums_creater! {
     TextureType {
@@ -195,4 +263,46 @@ enums_index_creater! {
         Unit
     }
 
+}
+setter_gen! {
+    VertexArrayAttribPointerGen {
+        index: u32,
+        once_size: i32,
+        is_normalized: bool,
+        stride: i32,
+        pointer: u32
+    }
+}
+impl VertexArrayAttribPointerGen {
+    pub const fn new<T: TypeGL>(index: u32, once_size: i32) -> Self {
+        Self {
+            index,
+            once_size,
+            is_normalized: false,
+            stride: once_size * size_of::<T>() as i32,
+            pointer: 0,
+        }
+    }
+}
+
+setter_gen! {
+TextureParm {
+    min_filter: Filter,
+    mag_filter: Filter,
+    wrap_s: TextureWarpMode,
+    wrap_t: TextureWarpMode,
+    once_load_size: i32
+}
+}
+
+impl TextureParm {
+    pub const fn new() -> Self {
+        Self {
+            min_filter: Filter::Nearest,
+            mag_filter: Filter::Nearest,
+            wrap_s: TextureWarpMode::ClampBorder,
+            wrap_t: TextureWarpMode::ClampBorder,
+            once_load_size: 4,
+        }
+    }
 }

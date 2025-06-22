@@ -1,3 +1,4 @@
+use core::panic;
 use std::fs;
 use std::sync::{LazyLock, Mutex};
 
@@ -7,11 +8,11 @@ use glam::{vec3, Mat4};
 use std::collections::HashMap;
 
 use crate::draws::window_ort;
-use crate::gl_unit::define::TextureType;
+use crate::gl_unit::define::{TextureParm, TextureType, VertexArrayAttribPointerGen};
 use crate::gl_unit::program::Program;
+use crate::gl_unit::texture::Texture2D;
 use crate::gl_unit::texture::{Texture, TextureMap, TextureWrapper};
 use crate::gl_unit::{self, view_port};
-use crate::gl_unit::{texture::Texture2D, texture::TextureParm};
 use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use std::path::Path;
 
@@ -19,7 +20,7 @@ static FT_LIB: LazyLock<ft::Library> = LazyLock::new(|| ft::Library::init().unwr
 
 pub const FONT_SIZE_AUTO: u32 = 0;
 
-const FT_TEXTURE_H: u32 = 64;
+const FT_TEXTURE_H: u32 = 32;
 
 #[derive(Clone, Copy)]
 struct Character {
@@ -38,7 +39,7 @@ impl Character {
                 TextureType::RED8,
                 img.width() as u32,
                 img.rows() as u32,
-                TextureParm::new().once_size(1),
+                TextureParm::new().once_load_size(1),
             )
         };
         (
@@ -90,12 +91,6 @@ pub struct FontBound {
     pub y_top: f32,
 }
 
-static FONT: LazyLock<Mutex<Font>> =
-    LazyLock::new(|| Mutex::new(Font::new_file(Path::new("C:\\Windows\\Fonts\\msyh.ttc"), 0)));
-pub fn with_font(func: impl FnOnce(&mut Font)) {
-    func(&mut FONT.lock().unwrap())
-}
-
 unsafe impl Sync for Font {}
 unsafe impl Send for Font {}
 pub struct Font {
@@ -110,7 +105,7 @@ impl Font {
             font_date: FT_LIB
                 .new_memory_face(raw, index)
                 .expect("new font from raw error!"),
-            char_tex: TextureMap::new(4000, 4000),
+            char_tex: TextureMap::new(1024, 1024),
             characters: HashMap::new(),
         };
         font.set_size(FONT_SIZE_AUTO, FT_TEXTURE_H);
@@ -215,6 +210,7 @@ impl Font {
         let mut x_count = 0f32;
 
         let mut vertex: Vec<f32> = Vec::with_capacity(char_len * 4 * 4);
+
         let chars = self.get_char(str);
         for (index, char) in str.chars().zip(chars.iter()) {
             let uv = self.char_tex.get_uv(&(index as usize)).unwrap();
@@ -263,10 +259,12 @@ impl Font {
             FT_PROGRAM.get_uniform("text_color"),
         );
 
-        VAO_MUT.with(&VERTEX_BIG_MUT, 0, 4, gl::FLOAT, 0);
+        VAO_MUT.bind_set(
+            &VERTEX_BIG_MUT,
+            VertexArrayAttribPointerGen::new::<f32>(0, 4),
+        );
 
-        VERTEX_BIG_MUT.sub(&vertex, 0);
-
+        VERTEX_BIG_MUT.sub_data(&vertex, 0);
         FT_PROGRAM.draw_rect(str.chars().count() as i32);
     }
 }
@@ -284,7 +282,7 @@ mod test {
         let mut context = GLcontext::with(&mut window);
         window.window.show();
 
-        let mut font = Font::new_file(Path::new("./font.ttc"), 0);
+        let mut font = Font::new_file(Path::new("./font.otf"), 0);
 
         while !window.update() {
             context.draw_option(&mut window, |_, window| {
