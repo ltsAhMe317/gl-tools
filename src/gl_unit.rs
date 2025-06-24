@@ -328,37 +328,35 @@ impl VertexArray {
     pub fn element_bind(&mut self, data: &dyn Buffer) {
         self.bind(|_| {
             data.bind_target();
-            println!("element bind:{}", data.id());
         });
+        println!("element bind:{}", data.id());
         self.element_type = Some(data.type_as_gl());
     }
     pub fn pointer(&self, date: &dyn Buffer, pointer: VertexArrayAttribPointerGen) {
         if date.target() != BufferTarget::Vertex {
             panic!("[VAO err]buffer target != vertex");
         }
-        self.bind(|_| {
-            date.bind_target();
+        date.bind_target();
 
-            let (index, once_size, is_normalized, stride, pointer) = (
-                pointer.index,
-                pointer.len,
-                pointer.is_normalized,
-                pointer.stride,
-                pointer.pointer,
+        let (index, once_size, is_normalized, stride, pointer) = (
+            pointer.index,
+            pointer.len,
+            pointer.is_normalized,
+            pointer.stride,
+            pointer.pointer,
+        );
+
+        unsafe {
+            gl::EnableVertexAttribArray(index);
+            gl::VertexAttribPointer(
+                index,
+                once_size,
+                date.type_as_gl(),
+                if is_normalized { gl::TRUE } else { gl::FALSE },
+                stride,
+                pointer as *const c_void,
             );
-
-            unsafe {
-                gl::EnableVertexAttribArray(index);
-                gl::VertexAttribPointer(
-                    index,
-                    once_size,
-                    date.type_as_gl(),
-                    if is_normalized { gl::TRUE } else { gl::FALSE },
-                    stride,
-                    pointer as *const c_void,
-                );
-            }
-        });
+        }
     }
     pub fn bind(&self, func: impl FnOnce(&Self)) {
         Self::bind_id(self.array_id);

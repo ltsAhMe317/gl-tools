@@ -148,6 +148,13 @@ impl<T: TypeGL+'static> BufferConst<T> {
     pub fn new(target: BufferTarget, data: &[T], usage: BufferUsage) -> Self {
         unsafe { Self::new_raw(target, data.as_ptr() as *const c_void,data.len(), usage) }
     }
+    pub fn from_iter(target: BufferTarget,data:impl Iterator<Item = T>,usage: BufferUsage)->Self{
+        let mut vec = Vec::new();
+        for var in data{
+            vec.push(var);
+        }
+        Self::new(target, &vec, usage)
+    }
     pub fn new_null(target: BufferTarget, len:usize, usage: BufferUsage)->Self{
         unsafe{Self::new_raw(target, null(), len, usage)}
     }

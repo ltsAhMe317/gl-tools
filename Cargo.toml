@@ -15,8 +15,7 @@ image = "*"
 rand = "*"
 guillotiere = "*"
 paste = "*"
-modelz = "*"
-
+gltf = "*"
 [dependencies.glfw]
 version = "*"
 

@@ -435,12 +435,12 @@ pub mod test {
 }
 
 pub struct Reanim {
-    pub date: Arc<ReanimDate>,
+    pub date: Arc<ReanimData>,
 }
 impl Reanim {
     pub fn from_file(path: &Path, textures: &TextureMap<String>) -> Self {
         Self {
-            date: Arc::new(ReanimDate::new(
+            date: Arc::new(ReanimData::new(
                 fs::read_to_string(path).unwrap().as_str(),
                 textures,
             )),
@@ -448,7 +448,7 @@ impl Reanim {
     }
     pub fn new(xml: &str, textures: &TextureMap<String>) -> Self {
         Self {
-            date: Arc::new(ReanimDate::new(xml, textures)),
+            date: Arc::new(ReanimData::new(xml, textures)),
         }
     }
     pub fn make_player(&self) -> ReanimPlayer {
@@ -474,18 +474,18 @@ impl Reanim {
         player
     }
 }
-pub struct ReanimDate {
+pub struct ReanimData {
     fps: f32,
     len: usize,
     pub tracks: Vec<(String, Vec<Tick>)>,
     pub anim: HashMap<String, Range<usize>>,
 }
-impl Debug for ReanimDate {
+impl Debug for ReanimData {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "")
     }
 }
-impl ReanimDate {
+impl ReanimData {
     pub fn from_file(path: &Path, textures: &TextureMap<String>) -> Self {
         Self::new(fs::read_to_string(path).unwrap().as_str(), textures)
     }
@@ -668,7 +668,7 @@ pub struct AnimState {
 }
 
 pub struct ReanimPlayer {
-    pub date: Arc<ReanimDate>,
+    pub date: Arc<ReanimData>,
     tracks: Vec<Tick>,
     pub anims_delta: HashMap<String, f32>,
     pub anim_queue: [Vec<AnimState>; 32],
@@ -713,7 +713,8 @@ impl ReanimPlayer {
         //render
         gl_unit::const_blend(ConstBlend::Normal);
         program.bind();
-        VAO_MUT.pointer(
+        VAO_MUT.bind(|vao|{
+        vao.pointer(
             VERTEX_BIG_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 4),
         );
@@ -727,7 +728,7 @@ impl ReanimPlayer {
             "project_mat",
         );
         
-        VAO_MUT.draw_arrays(DrawMode::Quads,0,vertexs.len() as i32 / 16);
+        vao.draw_arrays(DrawMode::Quads,0,vertexs.len() as i32 / 16);});
     }
     pub fn render(&self, window_size: (i32, i32), tex_map: &TextureMap<String>, mat: Mat4) {
         self.render_program(window_size, tex_map, &PROGRAM2D_ONE, mat);

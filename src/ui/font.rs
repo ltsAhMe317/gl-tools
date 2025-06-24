@@ -254,21 +254,24 @@ impl Font {
 
         FT_PROGRAM.put_texture(0, FT_PROGRAM.get_uniform("text"));
         self.char_tex.get_tex().bind_unit(0);
-        
+
         FT_PROGRAM.put_matrix_name(&(window_ort(window_size)), "project_mat");
         FT_PROGRAM.put_matrix_name(&Mat4::from_translation(vec3(x, y, 0f32)), "model_mat");
         FT_PROGRAM.put_vec4(
             [color.0, color.1, color.2, color.3],
             FT_PROGRAM.get_uniform("text_color"),
         );
+        VERTEX_BIG_MUT.sub_data(&vertex, 0);
+        VAO_MUT.bind(|vao| {
 
-        VAO_MUT.pointer(
+        vao.pointer(
             VERTEX_BIG_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 4),
         );
-
-        VERTEX_BIG_MUT.sub_data(&vertex, 0);
-        VAO_MUT.draw_arrays(DrawMode::Quads, 0, str.chars().count() as i32 * 4);
+        
+        
+            vao.draw_arrays(DrawMode::Quads, 0, str.chars().count() as i32 * 4);
+        });
     }
 }
 #[cfg(test)]
@@ -290,7 +293,7 @@ mod test {
         while !window.update() {
             context.draw_option(&mut window, |_, window| {
                 font.draw(
-                   "hello? this is a test:) 牛逼",
+                    "hello? this is a test:) 牛逼",
                     window.window.get_size(),
                     -400f32,
                     0f32,
