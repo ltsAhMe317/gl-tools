@@ -163,14 +163,7 @@ impl Program {
             gl::Uniform1i(id, num);
         }
     }
-    pub fn draw(&self, mode: GLenum, count: GLsizei) {
-        unsafe {
-            gl::DrawArrays(mode, 0, count);
-        }
-    }
-    pub fn draw_rect(&self, count: GLsizei) {
-        self.draw(gl::QUADS, count * 4);
-    }
+    
     pub fn put_matrix3(&self, date: &Mat3, id: GLint) {
         unsafe {
             gl::UniformMatrix3fv(id, 1, gl::FALSE, date.as_ref().as_ptr());

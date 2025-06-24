@@ -1,6 +1,6 @@
 use define::*;
-use gl::types;
-use gl::types::{GLenum, GLint, GLintptr, GLsizei, GLsizeiptr, GLuint};
+
+use gl::types::{GLenum, GLint, GLsizei, GLuint};
 use glam::IVec2;
 use glfw::Context;
 use image::ImageFormat;
@@ -21,7 +21,8 @@ pub mod window;
 
 use window::Window;
 
-use crate::{Buffer, TypeGL};
+use crate::Buffer;
+
 extern "system" fn debug_callback(
     source: gl::types::GLenum,
     gltype: gl::types::GLenum,
@@ -310,12 +311,7 @@ impl Drop for FrameBuffer {
 
 pub struct VertexArray {
     array_id: GLuint,
-}
-
-impl Default for VertexArray {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub element_type: Option<GLenum>,
 }
 impl VertexArray {
     pub fn new() -> Self {
@@ -323,46 +319,77 @@ impl VertexArray {
         unsafe {
             gl::GenVertexArrays(1, &mut id);
         }
-        Self { array_id: id }
+        Self {
+            array_id: id,
+            element_type: None,
+        }
     }
 
-    pub fn bind_set<T: TypeGL>(&self, date: &Buffer<T>, pointer: VertexArrayAttribPointerGen) {
-        if date.target != BufferTarget::Vertex {
+    pub fn element_bind(&mut self, data: &dyn Buffer) {
+        self.bind(|_| {
+            data.bind_target();
+            println!("element bind:{}", data.id());
+        });
+        self.element_type = Some(data.type_as_gl());
+    }
+    pub fn pointer(&self, date: &dyn Buffer, pointer: VertexArrayAttribPointerGen) {
+        if date.target() != BufferTarget::Vertex {
             panic!("[VAO err]buffer target != vertex");
         }
-        self.bind();
-        date.bind_target();
+        self.bind(|_| {
+            date.bind_target();
 
-        let (index, once_size, is_normalized, stride, pointer) = (
-            pointer.index,
-            pointer.once_size,
-            pointer.is_normalized,
-            pointer.stride,
-            pointer.pointer,
-        );
-
-        unsafe {
-            gl::EnableVertexAttribArray(index);
-            gl::VertexAttribPointer(
-                index,
-                once_size,
-                T::as_gl(),
-                if is_normalized { gl::TRUE } else { gl::FALSE },
-                stride,
-                pointer as *const c_void,
+            let (index, once_size, is_normalized, stride, pointer) = (
+                pointer.index,
+                pointer.len,
+                pointer.is_normalized,
+                pointer.stride,
+                pointer.pointer,
             );
+
+            unsafe {
+                gl::EnableVertexAttribArray(index);
+                gl::VertexAttribPointer(
+                    index,
+                    once_size,
+                    date.type_as_gl(),
+                    if is_normalized { gl::TRUE } else { gl::FALSE },
+                    stride,
+                    pointer as *const c_void,
+                );
+            }
+        });
+    }
+    pub fn bind(&self, func: impl FnOnce(&Self)) {
+        Self::bind_id(self.array_id);
+        func(self);
+        Self::bind_id(0);
+    }
+    fn bind_id(id: u32) {
+        unsafe {
+            gl::BindVertexArray(id);
         }
     }
-    pub fn bind(&self) {
+    pub fn draw_arrays(&self, mode: DrawMode, offset: i32, count: i32) {
         unsafe {
-            gl::BindVertexArray(self.array_id);
+            gl::DrawArrays(mode.as_gl(), offset, count);
+        }
+    }
+    pub fn draw_element(&self, mode: DrawMode, offset: u32, count: i32) {
+        unsafe {
+            gl::DrawElements(
+                mode.as_gl(),
+                count,
+                self.element_type.expect("vao no element bind"),
+                offset as *const c_void,
+            );
         }
     }
 }
 
 impl Drop for VertexArray {
     fn drop(&mut self) {
-        println!("delete vao");
+        println!("VAO {} leave", self.array_id);
         unsafe {
             gl::BindVertexArray(0);
             gl::DeleteVertexArrays(1, &self.array_id as *const GLuint);
@@ -417,6 +444,11 @@ pub fn const_blend(b: ConstBlend) {
 
 pub fn polygon_mode(face: Face, mode: PolygonMode) {
     unsafe {
+        match mode {
+            PolygonMode::Fill => {}
+            PolygonMode::Line(size) => gl::LineWidth(size),
+            PolygonMode::Point(size) => gl::PointSize(size),
+        }
         gl::PolygonMode(face.as_gl(), mode.as_gl());
     }
 }

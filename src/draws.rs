@@ -1,5 +1,5 @@
 pub mod model;
-use crate::gl_unit::define::VertexArrayAttribPointerGen;
+use crate::gl_unit::define::{DrawMode, VertexArrayAttribPointerGen};
 use crate::gl_unit::program::{Program, PROGRAM2D_ONE};
 use crate::gl_unit::texture::{Texture, TextureMap, UVindex};
 use crate::gl_unit::{self, ConstBlend};
@@ -13,7 +13,7 @@ use glam::{vec2, vec4, Mat4, Vec2, Vec3, Vec4Swizzles};
 // };
 use std::collections::HashMap;
 use std::fs;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -713,8 +713,8 @@ impl ReanimPlayer {
         //render
         gl_unit::const_blend(ConstBlend::Normal);
         program.bind();
-        VAO_MUT.bind_set(
-            &VERTEX_BIG_MUT,
+        VAO_MUT.pointer(
+            VERTEX_BIG_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 4),
         );
         VERTEX_BIG_MUT.sub_data(&vertexs, 0);
@@ -726,7 +726,8 @@ impl ReanimPlayer {
             &Mat4::orthographic_rh_gl(-w, w, -h, h, 1f32, -1f32),
             "project_mat",
         );
-        program.draw_rect(vertexs.len() as i32 / 16);
+        
+        VAO_MUT.draw_arrays(DrawMode::Quads,0,vertexs.len() as i32 / 16);
     }
     pub fn render(&self, window_size: (i32, i32), tex_map: &TextureMap<String>, mat: Mat4) {
         self.render_program(window_size, tex_map, &PROGRAM2D_ONE, mat);

@@ -1,7 +1,9 @@
+use std::any::Any;
+
 use gl::types::GLenum;
 use paste::paste;
 
-use crate::TypeGL;
+
 macro_rules! gl_enum {
     (Zero) => {
         gl::ZERO
@@ -42,17 +44,14 @@ macro_rules! gl_enum {
     (Line) => {
         gl::LINE
     };
-    (Point) => {
-        gl::POINT
-    };
-    (Fill) => {
-        gl::FILL
-    };
     (Front) => {
         gl::FRONT
     };
     (Back) => {
         gl::BACK
+    };
+    (FrontAndBack) => {
+        gl::FRONT_AND_BACK
     };
     (Texture2D) => {
         gl::TEXTURE_2D
@@ -128,12 +127,36 @@ macro_rules! gl_enum {
     (ClampBorder) => {
         gl::CLAMP_TO_BORDER
     };
+    (Points)=>{
+      gl::POINTS  
+    };
+    (Lines) =>{
+        gl::LINES
+    };
+    (LineStrip)=>{
+        gl::LINE_STRIP
+    };
+    (LineLoop)=>{
+        gl::LINE_LOOP
+    };
+    (Triangles)=>{
+        gl::TRIANGLES
+    };
+    (TriangleStrip)=>{
+        gl::TRIANGLE_STRIP
+    };
+    (TriangleFan)=>{
+        gl::TRIANGLE_FAN
+    };
+    (Quads)=>{
+        gl::QUADS
+    }
 }
 
 macro_rules! enums_creater {
         ($($name:ident {$($var:ident),* $(,)?})*)=>{
         $(
-            #[derive(Clone,Copy,PartialEq)]
+            #[derive(Clone,Copy,PartialEq,Debug)]
             pub enum $name{
                 $($var,)*
             }
@@ -213,14 +236,11 @@ enums_creater! {
         ConstColor,
         ConstAlpha,
     }
-    PolygonMode {
-        Fill,
-        Line,
-        Point,
-    }
+    
     Face{
         Front,
-        Back
+        Back,
+        FrontAndBack
     }
     BufferTarget{
         Vertex,
@@ -240,6 +260,30 @@ enums_creater! {
         MirroredRepeat,
         ClampBorder,
         ClampEdge
+    }
+    DrawMode{
+        Points,
+        Lines,
+        LineStrip,
+        LineLoop,
+        Triangles,
+        TriangleStrip,
+        TriangleFan,
+        Quads
+    }
+}
+pub enum PolygonMode {
+        Fill,
+        Line(f32),
+        Point(f32),
+}
+impl PolygonMode{
+    pub const fn as_gl(&self)->GLenum{
+        match self {
+            PolygonMode::Fill => gl::FILL,
+            PolygonMode::Line(_) => gl::LINE,
+            PolygonMode::Point(_) => gl::POINT,
+        }
     }
 }
 two_enums_creater! {
@@ -267,22 +311,32 @@ enums_index_creater! {
 setter_gen! {
     VertexArrayAttribPointerGen {
         index: u32,
-        once_size: i32,
+        len: i32,
         is_normalized: bool,
         stride: i32,
         pointer: usize
     }
 }
 impl VertexArrayAttribPointerGen {
-    pub const fn new<T: TypeGL>(index: u32, once_size: i32) -> Self {
+    pub const fn new<T: TypeGL>(index: u32, len: i32) -> Self {
         Self {
             index,
-            once_size,
+            len,
             is_normalized: false,
-            stride: once_size * size_of::<T>() as i32,
+            stride: len * size_of::<T>() as i32,
             pointer: 0,
         }
     }
+    pub const fn new_size(index: u32,len:i32, size: i32) -> Self {
+        Self {
+            index,
+            len,
+            is_normalized: false,
+            stride: len * size,
+            pointer: 0,
+        }
+    }
+
 }
 
 setter_gen! {
@@ -305,4 +359,26 @@ impl TextureParm {
             once_load_size: 4,
         }
     }
+}
+
+pub trait TypeGL {
+    fn as_gl() -> GLenum;
+}
+macro_rules! AutoTypeGL {
+    ($($type:ty:$gl:path),*) => {
+        $(
+            impl TypeGL for $type{
+                fn as_gl()->GLenum{
+                    $gl
+                }
+            }
+        )*
+    };
+}
+AutoTypeGL! {
+    f32:gl::FLOAT,
+    i32:gl::INT,
+    u8:gl::UNSIGNED_BYTE,
+    u16:gl::UNSIGNED_SHORT,
+    u32:gl::UNSIGNED_INT
 }

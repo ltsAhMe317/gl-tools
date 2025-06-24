@@ -19,7 +19,9 @@ use image::{DynamicImage, EncodableLayout, ImageBuffer, Rgba};
 
 use std::fmt::{Debug, Formatter};
 
-use crate::{TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT};
+use crate::{
+    gl_unit::define::DrawMode, TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT,
+};
 
 use super::{
     define::{self, Filter, TextureParm, TextureType, VertexArrayAttribPointerGen},
@@ -119,7 +121,6 @@ impl<T: Hash + Eq> TextureMap<T> {
         if vec.is_empty() {
             return Ok(());
         }
-        println!("add");
         crate::gl_unit::const_blend(ConstBlend::SrcOnly);
         self.frame.bind(gl::FRAMEBUFFER);
         self.frame.view_port();
@@ -133,15 +134,19 @@ impl<T: Hash + Eq> TextureMap<T> {
         program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
         program.put_texture(0, program.get_uniform("image"));
 
-        VAO_MUT.bind_set(
+        VAO_MUT.pointer(
             if y_flip {
-                &TEX_VERTEX_YFLIP_STATIC
+                TEX_VERTEX_YFLIP_STATIC.deref()
             } else {
-                &TEX_VERTEX_STATIC
-            },
+                TEX_VERTEX_STATIC.deref()
+            }
+            ,
             VertexArrayAttribPointerGen::new::<f32>(1, 2),
         );
-        VAO_MUT.bind_set(&VERTEX_MUT, VertexArrayAttribPointerGen::new::<f32>(0, 2));
+        VAO_MUT.pointer(
+            VERTEX_MUT.deref(),
+            VertexArrayAttribPointerGen::new::<f32>(0, 2),
+        );
         let mut uv_list = HashMap::new();
         for (name, texture) in vec.into_iter() {
             let texture = texture.as_ref();
@@ -185,8 +190,7 @@ impl<T: Hash + Eq> TextureMap<T> {
                 );
                 texture.bind_unit(0);
                 // println!("vao bind:{}",crate::gl_unit::debug::now_vao_id());
-
-                program.draw_rect(1);
+                VAO_MUT.draw_arrays(DrawMode::Quads, 0, 4);
             }
             uv_list.insert(name, uv);
         }
@@ -197,7 +201,6 @@ impl<T: Hash + Eq> TextureMap<T> {
     }
 
     pub fn clear(&mut self) {
-        dbg!("clear?");
         self.allocator.clear();
         self.index.clear();
     }
@@ -213,15 +216,14 @@ impl<T: Hash + Eq> TextureMap<T> {
 #[cfg(test)]
 mod test {
     use std::{
-        fs::{self},
-        path::Path,
+        fs::{self}, ops::Deref, path::Path
     };
 
     use glam::Mat4;
 
     use crate::{
         gl_unit::{
-            define::{TextureParm, VertexArrayAttribPointerGen},
+            define::{DrawMode, TextureParm, VertexArrayAttribPointerGen},
             program::PROGRAM2D_ONE,
             texture::{Texture, TextureWrapper},
             window::Window,
@@ -292,9 +294,9 @@ mod test {
         window.view_port();
         window.window.show();
 
-        VAO_MUT.bind_set(&VERTEX_MUT, VertexArrayAttribPointerGen::new::<f32>(0, 2));
-        VAO_MUT.bind_set(
-            &TEX_VERTEX_MUT,
+        VAO_MUT.pointer(VERTEX_MUT.deref(), VertexArrayAttribPointerGen::new::<f32>(0, 2));
+        VAO_MUT.pointer(
+            TEX_VERTEX_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(1, 2),
         );
 
@@ -323,8 +325,7 @@ mod test {
                     ],
                     0,
                 );
-
-                program.draw_rect(1);
+                VAO_MUT.draw_arrays(DrawMode::Quads,0, 4);
             });
         }
     }

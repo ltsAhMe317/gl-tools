@@ -1,5 +1,6 @@
 use core::panic;
 use std::fs;
+use std::ops::Deref;
 use std::sync::{LazyLock, Mutex};
 
 use freetype::face::LoadFlag;
@@ -8,7 +9,7 @@ use glam::{vec3, Mat4};
 use std::collections::HashMap;
 
 use crate::draws::window_ort;
-use crate::gl_unit::define::{TextureParm, TextureType, VertexArrayAttribPointerGen};
+use crate::gl_unit::define::{DrawMode, TextureParm, TextureType, VertexArrayAttribPointerGen};
 use crate::gl_unit::program::Program;
 use crate::gl_unit::texture::Texture2D;
 use crate::gl_unit::texture::{Texture, TextureMap, TextureWrapper};
@@ -249,9 +250,11 @@ impl Font {
         let (window_w, window_h) = window_size;
         view_port(0, 0, window_w, window_h);
         gl_unit::const_blend(gl_unit::ConstBlend::Normal);
+        FT_PROGRAM.bind();
+
         FT_PROGRAM.put_texture(0, FT_PROGRAM.get_uniform("text"));
         self.char_tex.get_tex().bind_unit(0);
-        FT_PROGRAM.bind();
+        
         FT_PROGRAM.put_matrix_name(&(window_ort(window_size)), "project_mat");
         FT_PROGRAM.put_matrix_name(&Mat4::from_translation(vec3(x, y, 0f32)), "model_mat");
         FT_PROGRAM.put_vec4(
@@ -259,13 +262,13 @@ impl Font {
             FT_PROGRAM.get_uniform("text_color"),
         );
 
-        VAO_MUT.bind_set(
-            &VERTEX_BIG_MUT,
+        VAO_MUT.pointer(
+            VERTEX_BIG_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 4),
         );
 
         VERTEX_BIG_MUT.sub_data(&vertex, 0);
-        FT_PROGRAM.draw_rect(str.chars().count() as i32);
+        VAO_MUT.draw_arrays(DrawMode::Quads, 0, str.chars().count() as i32 * 4);
     }
 }
 #[cfg(test)]
@@ -287,7 +290,7 @@ mod test {
         while !window.update() {
             context.draw_option(&mut window, |_, window| {
                 font.draw(
-                    "hello? this is a test:) 牛逼",
+                   "hello? this is a test:) 牛逼",
                     window.window.get_size(),
                     -400f32,
                     0f32,

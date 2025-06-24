@@ -1,25 +1,25 @@
 use core::panic;
-use std::{ffi::c_void, marker::PhantomData, sync::LazyLock};
+use std::{any::TypeId, ffi::c_void, marker::PhantomData, ops::Deref, ptr::null, sync::LazyLock};
 
 use gl::types::{GLenum, GLuint};
 
 use crate::gl_unit::debug;
 
 use super::{
-    define::{BufferTarget, BufferUsage, VertexArrayAttribPointerGen},
+    define::{BufferTarget, BufferUsage, TypeGL, VertexArrayAttribPointerGen},
     flush, VertexArray,
 };
 //do not edit
 // down left
-pub static TEX_VERTEX_YFLIP_STATIC: LazyLock<Buffer<f32>> = LazyLock::new(|| {
-    Buffer::new(
+pub static TEX_VERTEX_YFLIP_STATIC: LazyLock<BufferConst<f32>> = LazyLock::new(|| {
+    BufferConst::new(
         BufferTarget::Vertex,
         &[0f32, 0f32, 1f32, 0f32, 1f32, 1f32, 0f32, 1f32],
         BufferUsage::Static,
     )
 });
-pub static TEX_VERTEX_STATIC: LazyLock<Buffer<f32>> = LazyLock::new(|| {
-    Buffer::new(
+pub static TEX_VERTEX_STATIC: LazyLock<BufferConst<f32>> = LazyLock::new(|| {
+    BufferConst::new(
         BufferTarget::Vertex,
         &[0f32, 1f32, 1f32, 1f32, 1f32, 0f32, 0f32, 0f32],
         BufferUsage::Static,
@@ -28,9 +28,9 @@ pub static TEX_VERTEX_STATIC: LazyLock<Buffer<f32>> = LazyLock::new(|| {
 
 pub static VAO_STATIC: LazyLock<VertexArray> = LazyLock::new(|| {
     let vao = VertexArray::new();
-    vao.bind_set(&*VERTEX_MUT, VertexArrayAttribPointerGen::new::<f32>(0, 2));
-    vao.bind_set(
-        &*TEX_VERTEX_STATIC,
+    vao.pointer(VERTEX_MUT.deref(), VertexArrayAttribPointerGen::new::<f32>(0, 2));
+    vao.pointer(
+        TEX_VERTEX_STATIC.deref(),
         VertexArrayAttribPointerGen::new::<f32>(1, 2),
     );
     dbg!("VAO_STATIC LOAD");
@@ -39,125 +39,162 @@ pub static VAO_STATIC: LazyLock<VertexArray> = LazyLock::new(|| {
 
 //mutable
 pub const VERTEX_BIG: usize = 2 * 4096;
-pub static VERTEX_BIG_MUT: LazyLock<Buffer<f32>> = LazyLock::new(|| {
-    dbg!("VERTEX_BIG_MUT LOAD");
-
-    Buffer::new(
+pub static VERTEX_BIG_MUT: LazyLock<BufferConst<f32>> = LazyLock::new(|| {
+    BufferConst::new(
         BufferTarget::Vertex,
         &[0f32; VERTEX_BIG],
         BufferUsage::Dynamic,
     )
 });
-pub static VERTEX_MUT: LazyLock<Buffer<f32>> = LazyLock::new(|| {
-    dbg!("VERTEX_MUT LOAD");
-
-    Buffer::new(
+pub static VERTEX_MUT: LazyLock<BufferConst<f32>> = LazyLock::new(|| {
+    BufferConst::new(
         BufferTarget::Vertex,
         &[0f32, 0f32, 0f32, 0f32, 0f32, 0f32, 0f32, 0f32],
         BufferUsage::Dynamic,
     )
 });
-pub static TEX_VERTEX_MUT: LazyLock<Buffer<f32>> = LazyLock::new(|| {
-    dbg!("TEX_VERTEX_MUT LOAD");
-
-    Buffer::new(
+pub static TEX_VERTEX_MUT: LazyLock<BufferConst<f32>> = LazyLock::new(|| {
+    BufferConst::new(
         BufferTarget::Vertex,
         &[0f32, 0f32, 0f32, 0f32, 0f32, 0f32, 0f32, 0f32],
         BufferUsage::Dynamic,
     )
 });
-pub static VAO_MUT: LazyLock<VertexArray> = LazyLock::new(|| {
-    dbg!("VAO_STATIC LOAD");
+pub static VAO_MUT: LazyLock<VertexArray> = LazyLock::new(|| VertexArray::new());
 
-    VertexArray::new()
-});
 
-pub trait TypeGL {
-    fn as_gl() -> GLenum;
-}
-impl TypeGL for f32 {
-    fn as_gl() -> GLenum {
-        gl::FLOAT
+pub trait Buffer{
+    fn type_as_gl(&self)->GLenum;
+   fn target(&self)->BufferTarget;
+   fn id(&self)->GLuint;
+   fn len(&self)->usize;
+         fn bind_target(&self) {
+        bind_buffer(self.target(), self.id());
     }
-}
-impl TypeGL for i32 {
-    fn as_gl() -> GLenum {
-        gl::INT
+     fn unbind_target(&self) {
+        bind_buffer(self.target(), 0);
     }
+        
 }
-pub struct Buffer<T>
+fn bind_buffer(target: BufferTarget, id: GLuint){
+        unsafe {
+            gl::BindBuffer(target.as_gl(), id);
+        }
+}
+
+
+pub struct BufferObject{
+    pub target: BufferTarget,
+    id: GLuint,
+    len: usize,
+    type_const: GLenum,
+}
+impl Buffer for BufferObject{
+    fn target(&self)->BufferTarget {
+        self.target
+    }
+    
+    fn id(&self)->GLuint {
+        self.id
+    }
+
+    fn len(&self)->usize {
+        self.len
+    }
+
+    fn type_as_gl(&self)->GLenum {
+        self.type_const
+    }
+    
+}
+
+
+
+pub struct BufferConst<T>
 where
     T: TypeGL,
 {
     pub target: BufferTarget,
     id: GLuint,
-    size: isize,
+    len: usize,
     type_const: PhantomData<T>,
 }
-impl<T: TypeGL> Buffer<T> {
+impl<T: TypeGL+'static> BufferConst<T> {
     pub unsafe fn new_raw(
         target: BufferTarget,
         point: *const c_void,
-        len: isize,
+        len: usize,
         usage: BufferUsage,
     ) -> Self {
         let mut id = 0;
-
+        
         gl::GenBuffers(1, &mut id);
-        Self::bind(target, id);
+        bind_buffer(target, id);
         gl::BufferData(
             target.as_gl(),
-            len * size_of::<T>() as isize,
+            (len * size_of::<T>()) as isize,
             point,
             usage.as_gl(),
         );
-        println!("now_size:{}", debug::buffer_size(target));
-        println!("data:{:?}", debug::buffer_data(target));
-        println!("create:{}", gl::GetError());
-        Self::bind(target, 0);
+        
+        bind_buffer(target, 0);
         Self {
             target,
             id,
-            size: len,
+            len,
             type_const: PhantomData,
         }
     }
     pub fn new(target: BufferTarget, data: &[T], usage: BufferUsage) -> Self {
-        let (point, len) = (data.as_ptr(), data.len());
-        unsafe { Self::new_raw(target, point as *const c_void, len as isize, usage) }
+        unsafe { Self::new_raw(target, data.as_ptr() as *const c_void,data.len(), usage) }
+    }
+    pub fn new_null(target: BufferTarget, len:usize, usage: BufferUsage)->Self{
+        unsafe{Self::new_raw(target, null(), len, usage)}
     }
     pub fn sub_data(&self, data: &[T], offset: usize) {
-        if data.len() as isize > self.size {
+        if data.len() > self.len() {
             panic!("[sub data err]data's len > buffer");
         }
         self.bind_target();
         unsafe {
             gl::BufferSubData(
-                self.target.as_gl(),
+                self.target().as_gl(),
                 offset as isize,
                 std::mem::size_of_val(data) as isize,
                 data.as_ptr() as *const c_void,
             );
         }
     }
-    pub fn bind_target(&self) {
-        Self::bind(self.target, self.id);
-    }
-    pub fn unbind_target(&self) {
-        Self::bind(self.target, 0);
-    }
-    fn bind(target: BufferTarget, id: GLuint) {
-        unsafe {
-            gl::BindBuffer(target.as_gl(), id);
-        }
+
+    pub fn buffer_object(self)->BufferObject{
+        let value = BufferObject { target: self.target, id: self.id, len: self.len, type_const: T::as_gl() };
+        std::mem::forget(self);
+        value
     }
 }
-impl<T> Drop for Buffer<T>
+impl<T:TypeGL> Buffer for BufferConst<T>{
+    fn target(&self)->BufferTarget {
+        self.target
+    }
+
+    fn id(&self)->GLuint {
+        self.id
+    }
+
+    fn len(&self)->usize {
+        self.len
+    }
+
+    fn type_as_gl(&self)->GLenum {
+        T::as_gl()
+    }
+} 
+impl<T> Drop for BufferConst<T>
 where
     T: TypeGL,
 {
     fn drop(&mut self) {
-        println!("i break:(");
+        println!("{:?} buffer:{} leave",self.target,self.id);
         unsafe {
             self.unbind_target();
             gl::DeleteBuffers(1, &self.id as *const GLuint);
@@ -165,55 +202,7 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::gl_unit::{
-        define::{BufferTarget, BufferUsage, VertexArrayAttribPointerGen},
-        program::Program,
-        window::Window,
-        GLcontext, VertexArray,
-    };
-
-    use super::Buffer;
-
-    #[test]
-    fn test_buffer() {
-        let mut window = Window::new(800, 600, "test buffer", false);
-        let mut gl_context = GLcontext::with(&mut window);
-        window.window.show();
-        let vert = "
-#version 330
-    layout (location = 0) in vec2 vert;
-    
-    void main(){
-        gl_Position =  vec4(vert.xy,0,1);
-    }
-            
-        ";
-        let frag = "
-#version 330
-    out vec4 color;    
-    void main(){
-        color =  vec4(1,1,0,1);
-    }
-            
-            
-        ";
-        let program = Program::basic_new(vert, frag, None);
-        program.bind();
-        let buffer = Buffer::new(
-            BufferTarget::Vertex,
-            &[0f32, 0f32, 0.5f32, 0f32, 0.5f32, 0.5f32, 0f32, 0.5f32],
-            BufferUsage::Static,
-        );
-        let vao = VertexArray::new();
-
-        while !window.update() {
-            gl_context.draw_option(&mut window, |context, window| {
-                vao.bind_set(&buffer, VertexArrayAttribPointerGen::new::<f32>(0, 2));
-
-                program.draw_rect(1);
-            });
-        }
-    }
+#[test]
+fn size(){
+    println!("{}",size_of::<u16>())
 }

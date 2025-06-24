@@ -1,11 +1,11 @@
-use std::sync::LazyLock;
+use std::{ops::Deref, sync::LazyLock};
 
 use glam::{Mat4, Vec2};
 
 use crate::{
     draws::window_ort,
     gl_unit::{
-        define::{TextureParm, TextureType, VertexArrayAttribPointerGen},
+        define::{DrawMode, TextureParm, TextureType, VertexArrayAttribPointerGen},
         program::{Program, PROGRAM2D_TWO},
         texture::{Texture, Texture2D, TextureMap, TextureWrapper},
         window::Window,
@@ -58,10 +58,10 @@ pub fn color(
 
     let (x, y) = pos;
     let (w, h) = size;
-    VAO_STATIC.bind();
     VERTEX_MUT.sub_data(&[x, y, x + w, y, x + w, y - h, x, y - h], 0);
-
-    UI_PROGRAM.draw_rect(1);
+    VAO_STATIC.bind(|vao| {
+        vao.draw_arrays(DrawMode::Quads, 0, 4);
+    });
 }
 
 //left down
@@ -77,13 +77,15 @@ pub fn texture_y_flip(window_size: (i32, i32), texture: &Texture2D, pos: Vec2, s
     let (x, y, w, h) = (pos.x, pos.y, size.x, size.y);
     VERTEX_MUT.sub_data(&[x, y, x + w, y, x + w, y - h, x, y - h], 0);
 
-    VAO_MUT.bind_set(
-        &TEX_VERTEX_YFLIP_STATIC,
+    VAO_MUT.pointer(
+        TEX_VERTEX_YFLIP_STATIC.deref(),
         VertexArrayAttribPointerGen::new::<f32>(1, 2),
     );
-    VAO_MUT.bind_set(&VERTEX_MUT, VertexArrayAttribPointerGen::new::<f32>(0, 2));
-
-    program.draw_rect(1);
+    VAO_MUT.pointer(
+        VERTEX_MUT.deref(),
+        VertexArrayAttribPointerGen::new::<f32>(0, 2),
+    );
+    VAO_MUT.draw_element(DrawMode::Quads, 0, 4);
 }
 
 pub fn texture_map(texture: &TextureMap<String>, name: &str, pos: Vec2) {
@@ -161,12 +163,14 @@ impl Frame {
                 fb.texture.as_ref().unwrap().bind_unit(0);
                 PROGRAM2D_TWO.put_texture(0, PROGRAM2D_TWO.get_uniform("image"));
 
-                VAO_STATIC.bind();
+                
                 VERTEX_MUT.sub_data(&[-1f32, 1f32, 1f32, 1f32, 1f32, -1f32, -1f32, -1f32], 0);
                 PROGRAM2D_TWO.bind();
                 PROGRAM2D_TWO.put_matrix_name(&Mat4::IDENTITY, "project_mat");
                 PROGRAM2D_TWO.put_matrix_name(&Mat4::IDENTITY, "model_mat");
-                PROGRAM2D_TWO.draw_rect(1);
+                    VAO_STATIC.bind(|vao|{
+                vao.draw_arrays(DrawMode::Quads, 0, 4);
+                });
             } else {
                 obj.draw_fast(window);
             }
