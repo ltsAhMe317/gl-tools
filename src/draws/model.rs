@@ -3,7 +3,6 @@ use std::{fs, path::Path};
 use gl::VertexArrayVertexBuffer;
 use glam::Mat4;
 use gltf::{buffer::Data, Document, Gltf, Node};
-use rand::seq::IndexedRandom;
 
 use crate::{
     gl_unit::{
@@ -27,6 +26,7 @@ fn node_next_mesh(buffers:&Vec<Data>,node:&Node,transfrom:Mat4)->Vec<Mesh>{
             let transfrom_done =  transfrom*Mat4::from_cols_array(&unsafe{std::mem::transmute(node.transform().matrix())});
     
     if let Some(mesh) = node.mesh(){
+    
     let mut datas = Vec::new();
             for primitive in mesh.primitives() {
                 
@@ -39,6 +39,7 @@ fn node_next_mesh(buffers:&Vec<Data>,node:&Node,transfrom:Mat4)->Vec<Mesh>{
                         vertex_list.extend(vec);
                     }
                 }
+
                 if let Some(indices) = reader.read_indices() {
                     element = match indices {
                         gltf::mesh::util::ReadIndices::U8(iter) => {
@@ -107,6 +108,7 @@ pub struct PrimitiveData {
     vao: VertexArray,
     ebo: BufferObject,
     draw_mode: DrawMode,
+    
 }
 pub struct Mesh {
     transfrom:Mat4,
@@ -122,7 +124,7 @@ impl Model {
     }
     pub fn from_buffer(buffer: impl AsRef<[u8]>) -> Self {
         let (document, buffers, images) = gltf::import_slice(buffer.as_ref()).unwrap();
-
+        
 
         
         Self { mashes: document_mesh(&document, &buffers) }
