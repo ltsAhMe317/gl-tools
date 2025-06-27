@@ -2,10 +2,12 @@ pub mod model;
 use crate::gl_unit::define::{DrawMode, VertexArrayAttribPointerGen};
 use crate::gl_unit::program::{Program, PROGRAM2D_ONE};
 use crate::gl_unit::texture::{Texture, TextureMap, UVindex};
+use crate::gl_unit::window::Window;
 use crate::gl_unit::{self, ConstBlend};
 use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use core::fmt::{Debug, Formatter};
-use glam::{vec2, vec4, Mat4, Vec2, Vec3, Vec4Swizzles};
+use glam::{vec2, vec3, vec4, Mat4, Vec2, Vec3, Vec4Swizzles};
+
 
 // use rusty_spine::{
 //     AnimationState, AnimationStateData, Atlas, AttachmentType, Physics, Skeleton, SkeletonBinary,
@@ -50,15 +52,37 @@ impl Camera for Camera2D {
 }
 pub struct Camera3D {
     pub location: Vec3,
+    pub look_at:Vec3,
+    pub fov:f32,
+
+    asp:f32
 }
 impl Camera3D {
-    pub fn new() -> Self {
-        todo!()
+    pub fn new(window:&Window) -> Self {
+        let (w,h) = window.window.get_size();
+        Self{
+            location:vec3(0f32, 0f32, 0f32),
+            fov: 70f32,
+            asp:w as f32/h as f32,
+            look_at: vec3(0f32,0f32,1f32),
+        }
     }
+     pub fn look_rad(&mut self, yaw: f32, pitch: f32) {
+         // 计算方向向量
+        let direction = Vec3 {
+            x: yaw.cos() * pitch.cos(),
+            y: pitch.sin(),
+            z: yaw.sin() * pitch.cos(),
+        }.normalize();
+
+        // 更新look_at点（从当前位置看向这个方向）
+        self.look_at = self.location + direction;
+    }
+    
 }
 impl Camera for Camera3D {
     fn as_mat(&self) -> Mat4 {
-        todo!()
+        Mat4::perspective_rh_gl(self.fov.to_radians(),self.asp, 1f32, -1f32) * Mat4::look_at_rh(self.location, self.look_at, vec3(0f32, 1f32, 0f32))
     }
 }
 

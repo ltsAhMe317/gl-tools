@@ -215,10 +215,10 @@ mod tests {
     use std::path::Path;
 
     use glam::{vec3, Mat4};
+    use glfw::Action;
 
     use crate::{
-        gl_unit::{depth_test, polygon_mode, program::Program, window::Window, GLcontext},
-        ui::font::Font,
+        draws::{Camera, Camera3D}, gl_unit::{depth_test, polygon_mode, program::Program, window::Window, GLcontext}, ui::font::Font
     };
 
     use super::Model;
@@ -260,46 +260,56 @@ mod tests {
     ";
         let program = Program::basic_new(vert, frag, None);
         program.bind();
-
+        let mut camera = Camera3D::new(&window);
         let mut font = Font::new_file(Path::new("./font.otf"), 0);
         let model = Model::from_path("test.glb");
         depth_test(true);
         println!("loaded");
         while !window.update() {
+            if window.window.get_key(glfw::Key::W) == Action::Press{
+                camera.location.z += window.delta_count.delta as f32;
+            }
+if window.window.get_key(glfw::Key::A) == Action::Press{
+                camera.location.x += window.delta_count.delta as f32;
+            }
+if window.window.get_key(glfw::Key::D) == Action::Press{
+                camera.location.x -= window.delta_count.delta as f32;
+            }
+if window.window.get_key(glfw::Key::S) == Action::Press{
+                camera.location.z -= window.delta_count.delta as f32;
+            }
+
             context.draw_option(&mut window, |_, window| {
                 program.bind();
                 let (w, h) = window.window.get_size();
                 program.put_matrix_name(
-                    &(Mat4::perspective_rh_gl(
-                        90f32.to_radians(),
-                        w as f32 / h as f32,
-                        0.01f32,
-                        10f32,
-                    ) * Mat4::look_to_rh(
-                        vec3(0f32, 2f32, -3f32),
-                        vec3(0f32, -1f32, 1f32),
-                        vec3(0f32, 1f32, 0f32),
-                    )),
+                    &camera.as_mat(),
                     "project_mat",
                 );
-                program.put_matrix_name(
-                    &(Mat4::from_translation(vec3(
-                        window.delta_count.time_count.sin() as f32,
-                        0f32,
-                        0f32,
-                    )) * Mat4::from_rotation_y(window.delta_count.time_count as f32)),
-                    "model_mat",
+                // program.put_matrix_name(
+                //     &(Mat4::from_translation(vec3(
+                //         window.delta_count.time_count.sin() as f32,
+                //         0f32,
+                //         0f32,
+                //     )) * Mat4::from_rotation_y(window.delta_count.time_count as f32)),
+                //     "model_mat",
+                // );
+                program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
+                polygon_mode(
+                    crate::gl_unit::define::Face::Front,
+                    crate::gl_unit::define::PolygonMode::Fill,
                 );
+                polygon_mode(
+                    crate::gl_unit::define::Face::Back,
+                    crate::gl_unit::define::PolygonMode::Line(3f32),
+                );
+
+                model.draw(&program);
                 // polygon_mode(
                 //     crate::gl_unit::define::Face::FrontAndBack,
-                //     crate::gl_unit::define::PolygonMode::Fill,
+                //     crate::gl_unit::define::PolygonMode::Line(1f32),
                 // );
                 // model.draw(&program);
-                polygon_mode(
-                    crate::gl_unit::define::Face::FrontAndBack,
-                    crate::gl_unit::define::PolygonMode::Line(1f32),
-                );
-                model.draw(&program);
 polygon_mode(
                     crate::gl_unit::define::Face::FrontAndBack,
                     crate::gl_unit::define::PolygonMode::Fill,
