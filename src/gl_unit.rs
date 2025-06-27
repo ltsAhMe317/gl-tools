@@ -82,20 +82,10 @@ impl GLcontext {
         }
         Self {}
     }
-    pub fn clear(&self, buffer: &FrameBuffer) {
-        let id = buffer.frame_buffer as GLint;
-        unsafe {
-            gl::ClearBufferfv(gl::DEPTH, id, CLEAN_COLOR.as_ptr());
-            gl::ClearBufferfv(gl::COLOR, id, CLEAN_COLOR.as_ptr());
-            // gl::ClearBufferfv(gl::STENCIL_BUFFER_BIT, id, CLEAN_COLOR.as_ptr());
-        }
-    }
     pub fn base_clear(&self) {
-        self.clear(&FrameBuffer {
-            frame_buffer: 0,
-            render: None,
-            texture: None,
-        });
+        unsafe {
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
     }
     pub fn view_size(&self, x: i32, y: i32, w: i32, h: i32) {
         unsafe {
@@ -343,7 +333,7 @@ impl VertexArray {
             pointer.index,
             pointer.len,
             pointer.is_normalized,
-            pointer.stride,
+            pointer.stride_size,
             pointer.pointer,
         );
 
@@ -389,7 +379,7 @@ impl VertexArray {
 impl Drop for VertexArray {
     fn drop(&mut self) {
         println!("VAO {} leave", self.array_id);
-       unsafe {
+        unsafe {
             gl::BindVertexArray(0);
             gl::DeleteVertexArrays(1, &self.array_id as *const GLuint);
         }
@@ -460,5 +450,15 @@ pub fn flush() {
 pub fn finish() {
     unsafe {
         gl::Finish();
+    }
+}
+
+pub fn depth_test(value: bool) {
+    unsafe {
+        if value {
+            gl::Enable(gl::DEPTH_TEST);
+        } else {
+            gl::Disable(gl::DEPTH_TEST);
+        }
     }
 }

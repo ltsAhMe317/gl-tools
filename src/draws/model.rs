@@ -1,4 +1,5 @@
-use std::{fs, path::Path};
+use core::panic;
+use std::{collections::HashMap, fs, path::Path};
 
 use gl::VertexArrayVertexBuffer;
 use glam::Mat4;
@@ -6,135 +7,174 @@ use gltf::{buffer::Data, Document, Gltf, Node};
 
 use crate::{
     gl_unit::{
-        define::{BufferTarget, BufferUsage, DrawMode, VertexArrayAttribPointerGen},
+        define::{
+            BufferTarget, BufferUsage, DrawMode, TextureParm, TextureType,
+            VertexArrayAttribPointerGen,
+        },
         program::Program,
+        texture::{Texture, Texture2D, TextureMap, TextureWrapper, UVindex},
         VertexArray,
     },
     Buffer, BufferConst, BufferObject,
 };
 
-
-fn document_mesh(document:&Document,buffers:&Vec<Data>)->Vec<Mesh>{
+fn document_mesh(document: &Document, buffers: &Vec<Data>) -> Vec<Mesh> {
     let mut vec = Vec::new();
-    for node in document.nodes(){
+    for node in document.nodes() {
         vec.extend(node_next_mesh(buffers, &node, Mat4::IDENTITY));
     }
     vec
 }
-fn node_next_mesh(buffers:&Vec<Data>,node:&Node,transfrom:Mat4)->Vec<Mesh>{
+fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh> {
     let mut collect_mesh = Vec::new();
-            let transfrom_done =  transfrom*Mat4::from_cols_array(&unsafe{std::mem::transmute(node.transform().matrix())});
-    
-    if let Some(mesh) = node.mesh(){
-    
-    let mut datas = Vec::new();
-            for primitive in mesh.primitives() {
-                
-                let mut vertex_list = Vec::new();
-                let element;
-                let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
-                
-                if let Some(pos) = reader.read_positions() {
-                    for vec in pos {
-                        vertex_list.extend(vec);
-                    }
-                }
+    let transfrom_done = transfrom
+        * Mat4::from_cols_array(&unsafe { std::mem::transmute(node.transform().matrix()) });
 
-                if let Some(indices) = reader.read_indices() {
-                    element = match indices {
-                        gltf::mesh::util::ReadIndices::U8(iter) => {
-                            BufferConst::from_iter(BufferTarget::Element, iter, BufferUsage::Static)
-                                .buffer_object()
-                        }
-                        gltf::mesh::util::ReadIndices::U16(iter) => {
-                            BufferConst::from_iter(BufferTarget::Element, iter, BufferUsage::Static)
-                                .buffer_object()
-                        }
-                        gltf::mesh::util::ReadIndices::U32(iter) => {
-                            BufferConst::from_iter(BufferTarget::Element, iter, BufferUsage::Static)
-                                .buffer_object()
-                        }
-                    }
-                } else {
-                    element =
-                        BufferConst::<u8>::new_null(BufferTarget::Element, 0, BufferUsage::Static)
-                            .buffer_object();
+    if let Some(mesh) = node.mesh() {
+        let mut datas = Vec::new();
+        for primitive in mesh.primitives() {
+            let mut vertex_list = Vec::new();
+            let mut uv_list = Vec::new();
+            let element;
+            let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+
+            
+            if let (Some(pos), Some(uv)) = (reader.read_positions(), reader.read_tex_coords(0)) {
+                for (vec, uv) in pos.into_iter().zip(uv.into_u8().into_iter()) {
+                    vertex_list.extend(vec);
+                    uv_list.extend(uv);
                 }
-                let vertex_buffer =
-                    BufferConst::new(BufferTarget::Vertex, &vertex_list, BufferUsage::Static);
-                let mut vertex_array = VertexArray::new();
-                vertex_array.bind(|vao|{
+            }
+
+            if let Some(indices) = reader.read_indices() {
+                element = match indices {
+                    gltf::mesh::util::ReadIndices::U8(iter) => {
+                        BufferConst::from_iter(BufferTarget::Element, iter, BufferUsage::Static)
+                            .buffer_object()
+                    }
+                    gltf::mesh::util::ReadIndices::U16(iter) => {
+                        BufferConst::from_iter(BufferTarget::Element, iter, BufferUsage::Static)
+                            .buffer_object()
+                    }
+                    gltf::mesh::util::ReadIndices::U32(iter) => {
+                        BufferConst::from_iter(BufferTarget::Element, iter, BufferUsage::Static)
+                            .buffer_object()
+                    }
+                }
+            } else {
+                element =
+                    BufferConst::<u8>::new_null(BufferTarget::Element, 0, BufferUsage::Static)
+                        .buffer_object();
+            }
+            let vertex_buffer =
+                BufferConst::new(BufferTarget::Vertex, &vertex_list, BufferUsage::Static);
+            let uv_buffer =
+                BufferConst::new(BufferTarget::Vertex, &uv_list, BufferUsage::Static);
+            let mut vertex_array = VertexArray::new();
+            vertex_array.bind(|vao| {
                 vao.pointer(
                     &vertex_buffer,
                     VertexArrayAttribPointerGen::new::<f32>(0, 3),
                 );
-                
-                });
-                vertex_array.element_bind(&element);
+                vao.pointer(&uv_buffer, VertexArrayAttribPointerGen::new::<u8>(1,2).is_normalized(true));
+            });
+            
+            vertex_array.element_bind(&element);
 
-                let primitive = PrimitiveData {
-                    vbo: vertex_buffer,
-                    vao: vertex_array,
-                    ebo: element,
-                    draw_mode: match primitive.mode() {
-                        gltf::mesh::Mode::Points => DrawMode::Points,
-                        gltf::mesh::Mode::Lines => DrawMode::Lines,
-                        gltf::mesh::Mode::LineLoop => DrawMode::LineLoop,
-                        gltf::mesh::Mode::LineStrip => DrawMode::LineStrip,
-                        gltf::mesh::Mode::Triangles => DrawMode::Triangles,
-                        gltf::mesh::Mode::TriangleStrip => DrawMode::TriangleStrip,
-                        gltf::mesh::Mode::TriangleFan => DrawMode::TriangleFan,
-                    },
-                };
-                datas.push(primitive);
-            }
-            
-            
-        collect_mesh.push(Mesh{transfrom:transfrom_done,primitives:datas});
-    }else {
-         for child in node.children(){
-            collect_mesh.extend(node_next_mesh(buffers, &child, transfrom_done));
+            let primitive = PrimitiveData {
+                vbo: vertex_buffer,
+                vao: vertex_array,
+                ebo: element,
+                draw_mode: match primitive.mode() {
+                    gltf::mesh::Mode::Points => DrawMode::Points,
+                    gltf::mesh::Mode::Lines => DrawMode::Lines,
+                    gltf::mesh::Mode::LineLoop => DrawMode::LineLoop,
+                    gltf::mesh::Mode::LineStrip => DrawMode::LineStrip,
+                    gltf::mesh::Mode::Triangles => DrawMode::Triangles,
+                    gltf::mesh::Mode::TriangleStrip => DrawMode::TriangleStrip,
+                    gltf::mesh::Mode::TriangleFan => DrawMode::TriangleFan,
+                },
+                tex_index: primitive.material().index(),
+            };
+            datas.push(primitive);
+        }
+
+        collect_mesh.push(Mesh {
+            transfrom: transfrom_done,
+            primitives: datas,
+        });
+    } else {
+        for child in node.children() {
+            collect_mesh.extend(node_next_mesh( buffers, &child, transfrom_done));
         }
     }
     collect_mesh
 }
-
-
-
-
 
 pub struct PrimitiveData {
     vbo: BufferConst<f32>,
     vao: VertexArray,
     ebo: BufferObject,
     draw_mode: DrawMode,
-    
+    tex_index:Option<usize>
 }
 pub struct Mesh {
-    transfrom:Mat4,
+    transfrom: Mat4,
     primitives: Vec<PrimitiveData>,
 }
 
 pub struct Model {
     mashes: Vec<Mesh>,
+    texs: Vec<TextureWrapper<Texture2D>>,
 }
 impl Model {
-    pub fn from_path(p:impl AsRef<Path>)->Self{
+    pub fn from_path(p: impl AsRef<Path>) -> Self {
         Self::from_buffer(fs::read(p).unwrap())
     }
     pub fn from_buffer(buffer: impl AsRef<[u8]>) -> Self {
         let (document, buffers, images) = gltf::import_slice(buffer.as_ref()).unwrap();
-        
+        let textures = images
+            .into_iter()
+            .map(|data| {
+                let tex_type = match data.format {
+                    gltf::image::Format::R8 => TextureType::RED8,
+                    gltf::image::Format::R8G8 | gltf::image::Format::R16G16 => panic!("not impl"),
+                    gltf::image::Format::R8G8B8 => TextureType::RGB8,
+                    gltf::image::Format::R8G8B8A8 => TextureType::RGBA8,
+                    gltf::image::Format::R16 => TextureType::RED16,
+                    gltf::image::Format::R16G16B16 => TextureType::RGB16,
+                    gltf::image::Format::R16G16B16A16 => TextureType::RGBA16,
+                    gltf::image::Format::R32G32B32FLOAT => TextureType::RGB32,
+                    gltf::image::Format::R32G32B32A32FLOAT => TextureType::RGBA32,
+                };
 
-        
-        Self { mashes: document_mesh(&document, &buffers) }
+                TextureWrapper(Texture2D::load(
+                    Some(data.pixels.as_slice()),
+                    tex_type,
+                    data.width,
+                    data.height,
+                    TextureParm::new(),
+                ))
+            })
+            .collect::<Vec<TextureWrapper<Texture2D>>>();
+
+        Self {
+            mashes: document_mesh(&document, &buffers),
+            texs: textures,
+        }
     }
     pub fn draw(&self, program: &Program) {
         program.bind();
         for mash in self.mashes.iter() {
             program.put_matrix_name(&mash.transfrom, "mesh_mat");
+            program.put_texture(0, program.get_uniform("image"));
             for primitive in mash.primitives.iter() {
-                
+                if let Some(tex_index) = &primitive.tex_index{
+                    program.put_bool(program.get_uniform("is_tex"), true);
+                    self.texs.get(*tex_index).unwrap().bind_unit(0);
+                }else{
+                    program.put_bool(program.get_uniform("is_tex"), false);
+                }
                 primitive.vao.bind(|vao| {
                     vao.draw_element(primitive.draw_mode, 0, primitive.ebo.len() as i32);
                 });
@@ -150,7 +190,7 @@ mod tests {
     use glam::{vec3, Mat4};
 
     use crate::{
-        gl_unit::{polygon_mode, program::Program, window::Window, GLcontext},
+        gl_unit::{depth_test, polygon_mode, program::Program, window::Window, GLcontext},
         ui::font::Font,
     };
 
@@ -165,33 +205,43 @@ mod tests {
         let vert = "
             #version 330
     layout (location = 0) in vec3 vert;
+    layout (location = 1) in vec2 tex_uv;
+    out vec2 uv;
     uniform mat4 project_mat;
     uniform mat4 model_mat;
     uniform mat4 mesh_mat;
     void main(){
+        uv = tex_uv;
         gl_Position = project_mat*model_mat* mesh_mat*vec4(vert,1);
-    }
-        ";
+    }";
         let frag = "
-            #version 330
+        #version 330
+    uniform bool is_tex;
+    uniform sampler2D image;
+    in vec2 uv;
+
     out vec4 color;
     void main(){
+        if (is_tex){
+            color = texture(image,uv);
+        }else{
         color = vec4(1,1,1,1);
+        }
     }
-";
+    ";
         let program = Program::basic_new(vert, frag, None);
         program.bind();
-
+        
         let mut font = Font::new_file(Path::new("./font.otf"), 0);
         let model = Model::from_path("test.glb");
-
+        depth_test(true);
         println!("loaded");
         while !window.update() {
             context.draw_option(&mut window, |_, window| {
-                polygon_mode(
-                    crate::gl_unit::define::Face::FrontAndBack,
-                    crate::gl_unit::define::PolygonMode::Line(1f32),
-                );
+                // polygon_mode(
+                //     crate::gl_unit::define::Face::FrontAndBack,
+                //     crate::gl_unit::define::PolygonMode::Line(1f32),
+                // );
                 program.bind();
                 let (w, h) = window.window.get_size();
                 program.put_matrix_name(

@@ -113,9 +113,9 @@ impl<T: Hash + Eq> TextureMap<T> {
             allocator: rect_map,
         }
     }
-    pub fn add<Tex: AsRef<Texture2D>>(
+    pub fn add(
         &mut self,
-        vec: Vec<(T, Tex)>,
+        vec: Vec<(T, TextureWrapper<Texture2D>)>,
         y_flip: bool,
     ) -> Result<(), &'static str> {
         if vec.is_empty() {
@@ -149,6 +149,7 @@ impl<T: Hash + Eq> TextureMap<T> {
         );
         let mut uv_list = HashMap::new();
         for (name, texture) in vec.into_iter() {
+            println!("{},{}",texture.w,texture.h);
             let texture = texture.as_ref();
             let uv;
             if texture.w == 0 || texture.h == 0 {

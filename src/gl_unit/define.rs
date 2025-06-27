@@ -313,7 +313,7 @@ setter_gen! {
         index: u32,
         len: i32,
         is_normalized: bool,
-        stride: i32,
+        stride_size: i32,
         pointer: usize
     }
 }
@@ -323,7 +323,7 @@ impl VertexArrayAttribPointerGen {
             index,
             len,
             is_normalized: false,
-            stride: len * size_of::<T>() as i32,
+            stride_size: len * size_of::<T>() as i32,
             pointer: 0,
         }
     }
@@ -332,7 +332,7 @@ impl VertexArrayAttribPointerGen {
             index,
             len,
             is_normalized: false,
-            stride: len * size,
+            stride_size: len * size,
             pointer: 0,
         }
     }
