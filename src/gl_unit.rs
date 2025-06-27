@@ -329,6 +329,7 @@ impl VertexArray {
         self.bind(|_| {
             data.bind_target();
         });
+
         println!("element bind:{}", data.id());
         self.element_type = Some(data.type_as_gl());
     }
@@ -388,7 +389,7 @@ impl VertexArray {
 impl Drop for VertexArray {
     fn drop(&mut self) {
         println!("VAO {} leave", self.array_id);
-        unsafe {
+       unsafe {
             gl::BindVertexArray(0);
             gl::DeleteVertexArrays(1, &self.array_id as *const GLuint);
         }
