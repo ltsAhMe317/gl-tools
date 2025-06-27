@@ -1,5 +1,5 @@
 use core::panic;
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fmt::Debug, fs, path::Path};
 
 use gl::VertexArrayVertexBuffer;
 use glam::Mat4;
@@ -33,12 +33,15 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
     if let Some(mesh) = node.mesh() {
         let mut datas = Vec::new();
         for primitive in mesh.primitives() {
+            primitive
+                .material()
+                .pbr_metallic_roughness()
+                .base_color_factor();
             let mut vertex_list = Vec::new();
             let mut uv_list = Vec::new();
             let element;
             let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
-            
             if let (Some(pos), Some(uv)) = (reader.read_positions(), reader.read_tex_coords(0)) {
                 for (vec, uv) in pos.into_iter().zip(uv.into_u8().into_iter()) {
                     vertex_list.extend(vec);
@@ -68,21 +71,25 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
             }
             let vertex_buffer =
                 BufferConst::new(BufferTarget::Vertex, &vertex_list, BufferUsage::Static);
-            let uv_buffer =
-                BufferConst::new(BufferTarget::Vertex, &uv_list, BufferUsage::Static);
+            let uv_buffer = BufferConst::new(BufferTarget::Vertex, &uv_list, BufferUsage::Static);
+
             let mut vertex_array = VertexArray::new();
             vertex_array.bind(|vao| {
                 vao.pointer(
                     &vertex_buffer,
                     VertexArrayAttribPointerGen::new::<f32>(0, 3),
                 );
-                vao.pointer(&uv_buffer, VertexArrayAttribPointerGen::new::<u8>(1,2).is_normalized(true));
+                vao.pointer(
+                    &uv_buffer,
+                    VertexArrayAttribPointerGen::new::<u8>(1, 2).is_normalized(true),
+                );
             });
-            
+
             vertex_array.element_bind(&element);
 
             let primitive = PrimitiveData {
-                vbo: vertex_buffer,
+                vertex_buffer,
+                uv_buffer,
                 vao: vertex_array,
                 ebo: element,
                 draw_mode: match primitive.mode() {
@@ -94,7 +101,17 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
                     gltf::mesh::Mode::TriangleStrip => DrawMode::TriangleStrip,
                     gltf::mesh::Mode::TriangleFan => DrawMode::TriangleFan,
                 },
-                tex_index: primitive.material().index(),
+                material: {
+                    let pbr = primitive.material().pbr_metallic_roughness();
+                    Material {
+                        texture: if let Some(tex) = pbr.base_color_texture() {
+                            Some(tex.texture().index())
+                        } else {
+                            None
+                        },
+                        color: pbr.base_color_factor(),
+                    }
+                },
             };
             datas.push(primitive);
         }
@@ -105,18 +122,23 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
         });
     } else {
         for child in node.children() {
-            collect_mesh.extend(node_next_mesh( buffers, &child, transfrom_done));
+            collect_mesh.extend(node_next_mesh(buffers, &child, transfrom_done));
         }
     }
     collect_mesh
 }
 
-pub struct PrimitiveData {
-    vbo: BufferConst<f32>,
+struct Material {
+    texture: Option<usize>,
+    color: [f32; 4],
+}
+struct PrimitiveData {
+    vertex_buffer: BufferConst<f32>,
+    uv_buffer: BufferConst<u8>,
     vao: VertexArray,
     ebo: BufferObject,
     draw_mode: DrawMode,
-    tex_index:Option<usize>
+    material: Material,
 }
 pub struct Mesh {
     transfrom: Mat4,
@@ -167,13 +189,18 @@ impl Model {
         program.bind();
         for mash in self.mashes.iter() {
             program.put_matrix_name(&mash.transfrom, "mesh_mat");
-            program.put_texture(0, program.get_uniform("image"));
+            program.put_texture(0, program.get_uniform("material_texture"));
             for primitive in mash.primitives.iter() {
-                if let Some(tex_index) = &primitive.tex_index{
-                    program.put_bool(program.get_uniform("is_tex"), true);
+                if let Some(tex_index) = &primitive.material.texture {
+                    program.put_bool(program.get_uniform("is_material_texture"), true);
                     self.texs.get(*tex_index).unwrap().bind_unit(0);
-                }else{
-                    program.put_bool(program.get_uniform("is_tex"), false);
+                } else {
+                    println!("{:?}", primitive.material.color);
+                    program.put_vec4(
+                        primitive.material.color,
+                        program.get_uniform("material_color"),
+                    );
+                    program.put_bool(program.get_uniform("is_material_texture"), false);
                 }
                 primitive.vao.bind(|vao| {
                     vao.draw_element(primitive.draw_mode, 0, primitive.ebo.len() as i32);
@@ -216,32 +243,30 @@ mod tests {
     }";
         let frag = "
         #version 330
-    uniform bool is_tex;
-    uniform sampler2D image;
+    uniform bool is_material_texture;
+    uniform vec4 material_color;
+    uniform sampler2D material_texture;
     in vec2 uv;
-
-    out vec4 color;
+    out vec4 color_out;
     void main(){
-        if (is_tex){
-            color = texture(image,uv);
-        }else{
-        color = vec4(1,1,1,1);
-        }
+            if (is_material_texture){
+                color_out =texture(material_texture,uv);
+            }else{
+                color_out =material_color;
+            }
     }
+        
+    
     ";
         let program = Program::basic_new(vert, frag, None);
         program.bind();
-        
+
         let mut font = Font::new_file(Path::new("./font.otf"), 0);
         let model = Model::from_path("test.glb");
         depth_test(true);
         println!("loaded");
         while !window.update() {
             context.draw_option(&mut window, |_, window| {
-                // polygon_mode(
-                //     crate::gl_unit::define::Face::FrontAndBack,
-                //     crate::gl_unit::define::PolygonMode::Line(1f32),
-                // );
                 program.bind();
                 let (w, h) = window.window.get_size();
                 program.put_matrix_name(
@@ -265,8 +290,17 @@ mod tests {
                     )) * Mat4::from_rotation_y(window.delta_count.time_count as f32)),
                     "model_mat",
                 );
-                model.draw(&program);
+                // polygon_mode(
+                //     crate::gl_unit::define::Face::FrontAndBack,
+                //     crate::gl_unit::define::PolygonMode::Fill,
+                // );
+                // model.draw(&program);
                 polygon_mode(
+                    crate::gl_unit::define::Face::FrontAndBack,
+                    crate::gl_unit::define::PolygonMode::Line(1f32),
+                );
+                model.draw(&program);
+polygon_mode(
                     crate::gl_unit::define::Face::FrontAndBack,
                     crate::gl_unit::define::PolygonMode::Fill,
                 );

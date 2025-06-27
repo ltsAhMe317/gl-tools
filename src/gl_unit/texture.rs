@@ -376,6 +376,7 @@ impl Texture for Texture1D {
     }
 
     fn delete(&self) {
+        println!("Texture1D:{} leave",self.texture);
         unsafe {
             gl::DeleteTextures(1, &self.texture as *const GLuint);
         }
@@ -474,6 +475,7 @@ impl Texture for Texture2D {
     }
 
     fn delete(&self) {
+        println!("Texture1D:{} leave",self.texture);
         unsafe {
             gl::DeleteTextures(1, &self.texture as *const GLuint);
         }
