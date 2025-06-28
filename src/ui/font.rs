@@ -1,7 +1,7 @@
 use core::panic;
 use std::fs;
 use std::ops::Deref;
-use std::sync::{LazyLock, Mutex};
+use std::sync::LazyLock;
 
 use freetype::face::LoadFlag;
 use freetype::{self as ft, Bitmap, GlyphSlot};
@@ -56,30 +56,8 @@ impl Character {
     }
 }
 
-const FT_PROGRAM_VERT: &str = "
-    #version 330
-    layout (location = 0) in vec4 vert;
-    out vec2 uv;
-    uniform mat4 project_mat;
-    uniform mat4 model_mat;
-    void main(){
-        gl_Position = project_mat*model_mat * vec4(vert.xy,0,1);
-        uv = vert.zw;
-    }
-";
-const FT_PROGRAM_FRAG: &str = "
-    #version 330
-    in vec2 uv;
-    uniform sampler2D text;
-    uniform vec4 text_color;
-    out vec4 color;
-    void main(){
-        vec4 sampled = vec4(1.0, 1.0, 1.0, texture(text,uv).r);
-
-        color = text_color * sampled;
-                // color = vec4(1,1,1,1);
-    }
-";
+const FT_PROGRAM_VERT: &str = include_str!("../../shaders/font/vert.glsl");
+const FT_PROGRAM_FRAG: &str = include_str!("../../shaders/font/frag.glsl");
 
 static FT_PROGRAM: LazyLock<Program> =
     LazyLock::new(|| Program::basic_new(FT_PROGRAM_VERT, FT_PROGRAM_FRAG, None));
@@ -113,15 +91,6 @@ impl Font {
         font
     }
     pub fn new_file(path: &Path, index: isize) -> Self {
-        // let font = Self {
-        //     font_date: FT_LIB
-        //         .new_face(path, index)
-        //         .expect("new font from file error!"),
-        //     char_tex: TextureMap::new(4000, 4000),
-        //     characters: HashMap::new(),
-        // };
-        // font.set_size(FONT_SIZE_AUTO, FT_TEXTURE_H);
-        // font
         Self::new_raw(fs::read(path).unwrap(), index)
     }
 

@@ -16,22 +16,8 @@ use crate::{
 
 pub mod font;
 
-const UI_PROGRAM_VERT: &str = "
-    #version 460
-    layout (location = 0) in vec2 vert;
-    uniform mat4 project;
-    void main(){
-        gl_Position = project*vec4(vert,0,1);
-    }    
-";
-const UI_PROGRAM_FARG: &str = "
-    #version 460
-    uniform vec4 draw_color;
-    out vec4 color;
-    void main(){
-         color = draw_color;
-    }
-";
+const UI_PROGRAM_VERT: &str = include_str!("../shaders/ui/vert.glsl");
+const UI_PROGRAM_FARG: &str = include_str!("../shaders/ui/frag.glsl.glsl");
 
 static UI_PROGRAM: LazyLock<Program> =
     LazyLock::new(|| Program::basic_new(UI_PROGRAM_VERT, UI_PROGRAM_FARG, None));

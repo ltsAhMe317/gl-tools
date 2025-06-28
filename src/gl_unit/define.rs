@@ -1,4 +1,3 @@
-use std::any::Any;
 
 use gl::types::GLenum;
 use paste::paste;

@@ -1,9 +1,8 @@
 use core::panic;
-use std::{collections::HashMap, fmt::Debug, fs, path::Path};
+use std::{fs, path::Path, sync::LazyLock};
 
-use gl::VertexArrayVertexBuffer;
 use glam::Mat4;
-use gltf::{buffer::Data, Document, Gltf, Node};
+use gltf::{buffer::Data, Document, Node};
 
 use crate::{
     gl_unit::{
@@ -12,7 +11,7 @@ use crate::{
             VertexArrayAttribPointerGen,
         },
         program::Program,
-        texture::{Texture, Texture2D, TextureMap, TextureWrapper, UVindex},
+        texture::{Texture, Texture2D, TextureWrapper},
         VertexArray,
     },
     Buffer, BufferConst, BufferObject,
@@ -39,13 +38,17 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
                 .base_color_factor();
             let mut vertex_list = Vec::new();
             let mut uv_list = Vec::new();
+            let mut normal_list = Vec::new();
             let element;
             let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
-            if let (Some(pos), Some(uv)) = (reader.read_positions(), reader.read_tex_coords(0)) {
+            if let (Some(pos), Some(uv),Some(normal)) = (reader.read_positions(), reader.read_tex_coords(0),reader.read_normals()) {
                 for (vec, uv) in pos.into_iter().zip(uv.into_u8().into_iter()) {
                     vertex_list.extend(vec);
                     uv_list.extend(uv);
+                }
+                for normal in normal{
+                    normal_list.extend_from_slice(&normal);
                 }
             }
 
@@ -72,6 +75,7 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
             let vertex_buffer =
                 BufferConst::new(BufferTarget::Vertex, &vertex_list, BufferUsage::Static);
             let uv_buffer = BufferConst::new(BufferTarget::Vertex, &uv_list, BufferUsage::Static);
+            let normal_buffer = BufferConst::new(BufferTarget::Vertex, &normal_list, BufferUsage::Static);
 
             let mut vertex_array = VertexArray::new();
             vertex_array.bind(|vao| {
@@ -83,6 +87,12 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
                     &uv_buffer,
                     VertexArrayAttribPointerGen::new::<u8>(1, 2).is_normalized(true),
                 );
+
+                vao.pointer(
+                    &normal_buffer,
+                    VertexArrayAttribPointerGen::new::<f32>(2, 3),
+                );
+                
             });
 
             vertex_array.element_bind(&element);
@@ -132,6 +142,7 @@ struct Material {
     texture: Option<usize>,
     color: [f32; 4],
 }
+#[allow(dead_code)]
 struct PrimitiveData {
     vertex_buffer: BufferConst<f32>,
     uv_buffer: BufferConst<u8>,
@@ -195,7 +206,6 @@ impl Model {
                     program.put_bool(program.get_uniform("is_material_texture"), true);
                     self.texs.get(*tex_index).unwrap().bind_unit(0);
                 } else {
-                    println!("{:?}", primitive.material.color);
                     program.put_vec4(
                         primitive.material.color,
                         program.get_uniform("material_color"),
@@ -209,16 +219,20 @@ impl Model {
         }
     }
 }
-
+const MODEL_PROGRAM_VERT:&str = include_str!("../../shaders/model/vert.glsl");
+const MODEL_PROGRAM_FRAG:&str = include_str!("../../shaders/model/frag.glsl");
+pub static MODEL_PROGRAM:LazyLock<Program> = LazyLock::new(||{
+    Program::basic_new(MODEL_PROGRAM_VERT, MODEL_PROGRAM_FRAG, None)
+});
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
-    use glam::{vec3, Mat4};
+    use glam::Mat4;
     use glfw::Action;
 
     use crate::{
-        draws::{Camera, Camera3D}, gl_unit::{depth_test, polygon_mode, program::Program, window::Window, GLcontext}, ui::font::Font
+        draws::{model::MODEL_PROGRAM, vec_from_rad, Camera, Camera3D}, gl_unit::{depth_test, polygon_mode, program::Program, window::Window, GLcontext}, ui::font::Font
     };
 
     use super::Model;
@@ -228,65 +242,56 @@ mod tests {
         let mut window = Window::new(1280, 720, "test model", false);
         let mut context = GLcontext::with(&mut window);
         window.window.show();
-
-        let vert = "
-            #version 330
-    layout (location = 0) in vec3 vert;
-    layout (location = 1) in vec2 tex_uv;
-    out vec2 uv;
-    uniform mat4 project_mat;
-    uniform mat4 model_mat;
-    uniform mat4 mesh_mat;
-    void main(){
-        uv = tex_uv;
-        gl_Position = project_mat*model_mat* mesh_mat*vec4(vert,1);
-    }";
-        let frag = "
-        #version 330
-    uniform bool is_material_texture;
-    uniform vec4 material_color;
-    uniform sampler2D material_texture;
-    in vec2 uv;
-    out vec4 color_out;
-    void main(){
-            if (is_material_texture){
-                color_out =texture(material_texture,uv);
-            }else{
-                color_out =material_color;
-            }
-    }
-        
-    
-    ";
-        let program = Program::basic_new(vert, frag, None);
-        program.bind();
+        let mut look:(f32,f32) = (0f32,0f32);
         let mut camera = Camera3D::new(&window);
         let mut font = Font::new_file(Path::new("./font.otf"), 0);
         let model = Model::from_path("test.glb");
         depth_test(true);
         println!("loaded");
         while !window.update() {
-            if window.window.get_key(glfw::Key::W) == Action::Press{
-                camera.location.z += window.delta_count.delta as f32;
+            
+            let mut look_vec = vec_from_rad( 0f32,look.0.to_radians())*window.delta_count.delta as f32;
+            let look_vec_right = vec_from_rad( 0f32,(look.0-90f32).to_radians()) * window.delta_count.delta as f32;
+            let delta = window.delta_count.delta as f32;
+            if window.window.get_key(glfw::Key::W) == Action::Press{                
+                camera.go_vec( look_vec,delta);
             }
 if window.window.get_key(glfw::Key::A) == Action::Press{
-                camera.location.x += window.delta_count.delta as f32;
+                camera.go_vec( -look_vec_right,delta);
             }
 if window.window.get_key(glfw::Key::D) == Action::Press{
-                camera.location.x -= window.delta_count.delta as f32;
+                camera.go_vec( look_vec_right,delta);
             }
 if window.window.get_key(glfw::Key::S) == Action::Press{
-                camera.location.z -= window.delta_count.delta as f32;
+                camera.go_vec(-look_vec,delta);
             }
-
+            if window.window.get_key(glfw::Key::Space) == Action::Press{
+                camera.location.y += window.delta_count.delta as f32;
+            }
+            let delta = window.delta_count.delta as f32 * 40f32;
+if window.window.get_key(glfw::Key::Up) == Action::Press{
+                look.1 += delta;
+            }
+if window.window.get_key(glfw::Key::Down) == Action::Press{
+                look.1-= delta;
+            }
+if window.window.get_key(glfw::Key::Right) == Action::Press{
+                look.0 -= delta;
+            }
+if window.window.get_key(glfw::Key::Left) == Action::Press{
+                look.0 += delta;
+            }
+            look.1 =look.1.max(-80f32).min(80f32);
+            look.0 = look.0%360f32;
+            camera.look_rad(look.1.to_radians(), look.0.to_radians());
             context.draw_option(&mut window, |_, window| {
-                program.bind();
+                MODEL_PROGRAM.bind();
                 let (w, h) = window.window.get_size();
-                program.put_matrix_name(
+                MODEL_PROGRAM.put_matrix_name(
                     &camera.as_mat(),
                     "project_mat",
                 );
-                // program.put_matrix_name(
+                // MODEL_PROGRAM.put_matrix_name(
                 //     &(Mat4::from_translation(vec3(
                 //         window.delta_count.time_count.sin() as f32,
                 //         0f32,
@@ -294,7 +299,7 @@ if window.window.get_key(glfw::Key::S) == Action::Press{
                 //     )) * Mat4::from_rotation_y(window.delta_count.time_count as f32)),
                 //     "model_mat",
                 // );
-                program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
+                MODEL_PROGRAM.put_matrix_name(&Mat4::IDENTITY, "model_mat");
                 polygon_mode(
                     crate::gl_unit::define::Face::Front,
                     crate::gl_unit::define::PolygonMode::Fill,
@@ -304,7 +309,7 @@ if window.window.get_key(glfw::Key::S) == Action::Press{
                     crate::gl_unit::define::PolygonMode::Line(3f32),
                 );
 
-                model.draw(&program);
+                model.draw(&MODEL_PROGRAM);
                 // polygon_mode(
                 //     crate::gl_unit::define::Face::FrontAndBack,
                 //     crate::gl_unit::define::PolygonMode::Line(1f32),

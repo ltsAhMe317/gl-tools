@@ -9,56 +9,18 @@ use gl::types::{GLenum, GLint, GLsizei, GLuint};
 use glam::{Mat3, Mat4};
 use json::JsonValue;
 
-const PROGRAM2D_VERT_TWO: &str = "
-    #version 330
-    layout (location = 0) in vec2 vert;
-    layout (location = 1) in vec2 uv;
-    out vec2 tex_uv;
-    uniform mat4 project_mat;
-    uniform mat4 model_mat;
-    void main(){
-        gl_Position = project_mat * model_mat * vec4(vert,0,1);
-        tex_uv = uv;
-    }
-";
-const PROGRAM2D_FRAG_TWO: &str = "
-    #version 330
-    in vec2 tex_uv;
-    uniform sampler2D image;
-    out vec4 color;
-    void main(){
-        color = texture(image,tex_uv);
-      }
-";
+const PROGRAM2D_VERT_TWO: &str = include_str!("../../shaders/program2d_two/vert.glsl");
+const PROGRAM2D_FRAG_TWO: &str = include_str!("../../shaders/program2d_two/frag.glsl");
 
 pub static PROGRAM2D_TWO: LazyLock<Program> =
     LazyLock::new(|| Program::basic_new(PROGRAM2D_VERT_TWO, PROGRAM2D_FRAG_TWO, None));
 
-const PROGRAM2D_VERT_ONE: &str = "
-    #version 330
-    layout (location = 0) in vec4 vert;
-    out vec2 uv;
-    uniform mat4 project_mat;
-    uniform mat4 model_mat;
-    void main(){
-        uv = vert.zw;
-    
-        gl_Position = project_mat * model_mat * vec4(vert.xy,0,1);
-     }
-";
-const PROGRAM2D_FRAG_ONE: &str = "
-    #version 330
-    in vec2 uv;
-    uniform sampler2D image;
-    out vec4 color;
-    void main(){
-        color = texture(image,uv);
-        // color = vec4(1,1,1,1);
-    }
-";
+const PROGRAM2D_VERT_ONE: &str = include_str!("../../shaders/program2d_one/vert.glsl");
+const PROGRAM2D_FRAG_ONE: &str = include_str!("../../shaders/program2d_one/frag.glsl");
 
 pub static PROGRAM2D_ONE: LazyLock<Program> =
     LazyLock::new(|| Program::basic_new(PROGRAM2D_VERT_ONE, PROGRAM2D_FRAG_ONE, None));
+
 pub struct Shader {
     shader_id: GLuint,
 }

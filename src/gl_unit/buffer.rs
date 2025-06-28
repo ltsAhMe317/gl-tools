@@ -1,13 +1,12 @@
 use core::panic;
-use std::{any::TypeId, ffi::c_void, marker::PhantomData, ops::Deref, ptr::null, sync::LazyLock};
+use std::{ffi::c_void, marker::PhantomData, ops::Deref, ptr::null, sync::LazyLock};
 
 use gl::types::{GLenum, GLuint};
 
-use crate::gl_unit::debug;
 
 use super::{
     define::{BufferTarget, BufferUsage, TypeGL, VertexArrayAttribPointerGen},
-    flush, VertexArray,
+    VertexArray,
 };
 //do not edit
 // down left

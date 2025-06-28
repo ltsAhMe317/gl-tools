@@ -9,10 +9,7 @@ use std::{
     ptr::null,
 };
 
-use gl::{
-    types::{GLenum, GLint, GLsizei, GLuint},
-    Finish,
-};
+use gl::types::{GLenum, GLint, GLsizei, GLuint};
 use glam::{vec2, Mat4, Vec2};
 use guillotiere::*;
 use image::{DynamicImage, EncodableLayout, ImageBuffer, Rgba};
@@ -23,10 +20,7 @@ use crate::{
     gl_unit::define::DrawMode, TEX_VERTEX_STATIC, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VERTEX_MUT,
 };
 
-use super::{
-    define::{self, Filter, TextureParm, TextureType, VertexArrayAttribPointerGen},
-    finish,
-};
+use super::define::{self, Filter, TextureParm, TextureType, VertexArrayAttribPointerGen};
 use super::{program::PROGRAM2D_TWO, ConstBlend, FrameBuffer};
 const TEXTURE_MAP_MAX: i32 = 480;
 const TEXTURE_MAP_SPLIT: i32 = 1;

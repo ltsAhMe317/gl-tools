@@ -50,6 +50,13 @@ impl Camera for Camera2D {
         Mat4::from_translation(self.location.extend(0f32))
     }
 }
+pub fn vec_from_rad(pitch:f32,yaw:f32)->Vec3{
+ Vec3 {
+            x: yaw.sin() * pitch.cos(),
+            y: pitch.sin(),
+            z: yaw.cos() * pitch.cos(),
+        }.normalize()
+}
 pub struct Camera3D {
     pub location: Vec3,
     pub look_at:Vec3,
@@ -67,18 +74,12 @@ impl Camera3D {
             look_at: vec3(0f32,0f32,1f32),
         }
     }
-     pub fn look_rad(&mut self, yaw: f32, pitch: f32) {
-         // 计算方向向量
-        let direction = Vec3 {
-            x: yaw.cos() * pitch.cos(),
-            y: pitch.sin(),
-            z: yaw.sin() * pitch.cos(),
-        }.normalize();
-
-        // 更新look_at点（从当前位置看向这个方向）
-        self.look_at = self.location + direction;
+     pub fn look_rad(&mut self, pitch: f32,yaw: f32,) {
+        self.look_at = self.location + vec_from_rad(pitch,yaw);
     }
-    
+    pub fn go_vec(&mut self,vec:Vec3,range:f32){
+        self.location += vec.normalize() * range;
+    }
 }
 impl Camera for Camera3D {
     fn as_mat(&self) -> Mat4 {
