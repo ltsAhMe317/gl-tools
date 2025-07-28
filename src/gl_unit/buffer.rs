@@ -27,12 +27,13 @@ pub static TEX_VERTEX_STATIC: LazyLock<BufferConst<f32>> = LazyLock::new(|| {
 
 pub static VAO_STATIC: LazyLock<VertexArray> = LazyLock::new(|| {
     let vao = VertexArray::new();
+    vao.bind(|vao|{
     vao.pointer(VERTEX_MUT.deref(), VertexArrayAttribPointerGen::new::<f32>(0, 2));
     vao.pointer(
         TEX_VERTEX_STATIC.deref(),
         VertexArrayAttribPointerGen::new::<f32>(1, 2),
     );
-    dbg!("VAO_STATIC LOAD");
+    });
     vao
 });
 

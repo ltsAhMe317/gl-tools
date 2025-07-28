@@ -127,23 +127,23 @@ impl<T: Hash + Eq> TextureMap<T> {
 
         program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
         program.put_texture(0, program.get_uniform("image"));
-
-        VAO_MUT.pointer(
-            if y_flip {
-                TEX_VERTEX_YFLIP_STATIC.deref()
-            } else {
-                TEX_VERTEX_STATIC.deref()
-            }
-            ,
-            VertexArrayAttribPointerGen::new::<f32>(1, 2),
-        );
-        VAO_MUT.pointer(
-            VERTEX_MUT.deref(),
-            VertexArrayAttribPointerGen::new::<f32>(0, 2),
-        );
+        VAO_MUT.bind(|vao| {
+            vao.pointer(
+                if y_flip {
+                    TEX_VERTEX_YFLIP_STATIC.deref()
+                } else {
+                    TEX_VERTEX_STATIC.deref()
+                },
+                VertexArrayAttribPointerGen::new::<f32>(1, 2),
+            );
+            vao.pointer(
+                VERTEX_MUT.deref(),
+                VertexArrayAttribPointerGen::new::<f32>(0, 2),
+            );
+        });
         let mut uv_list = HashMap::new();
         for (name, texture) in vec.into_iter() {
-            println!("{},{}",texture.w,texture.h);
+            println!("{},{}", texture.w, texture.h);
             let texture = texture.as_ref();
             let uv;
             if texture.w == 0 || texture.h == 0 {
@@ -185,7 +185,8 @@ impl<T: Hash + Eq> TextureMap<T> {
                 );
                 texture.bind_unit(0);
                 // println!("vao bind:{}",crate::gl_unit::debug::now_vao_id());
-                VAO_MUT.draw_arrays(DrawMode::Quads, 0, 4);
+                
+                VAO_MUT.bind(|vao|{vao.draw_arrays(DrawMode::Quads, 0, 4);});
             }
             uv_list.insert(name, uv);
         }
@@ -211,7 +212,9 @@ impl<T: Hash + Eq> TextureMap<T> {
 #[cfg(test)]
 mod test {
     use std::{
-        fs::{self}, ops::Deref, path::Path
+        fs::{self},
+        ops::Deref,
+        path::Path,
     };
 
     use glam::Mat4;
@@ -289,7 +292,10 @@ mod test {
         window.view_port();
         window.window.show();
 
-        VAO_MUT.pointer(VERTEX_MUT.deref(), VertexArrayAttribPointerGen::new::<f32>(0, 2));
+        VAO_MUT.pointer(
+            VERTEX_MUT.deref(),
+            VertexArrayAttribPointerGen::new::<f32>(0, 2),
+        );
         VAO_MUT.pointer(
             TEX_VERTEX_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(1, 2),
@@ -320,7 +326,7 @@ mod test {
                     ],
                     0,
                 );
-                VAO_MUT.draw_arrays(DrawMode::Quads,0, 4);
+                VAO_MUT.draw_arrays(DrawMode::Quads, 0, 4);
             });
         }
     }
@@ -370,7 +376,7 @@ impl Texture for Texture1D {
     }
 
     fn delete(&self) {
-        println!("Texture1D:{} leave",self.texture);
+        println!("Texture1D:{} leave", self.texture);
         unsafe {
             gl::DeleteTextures(1, &self.texture as *const GLuint);
         }
@@ -469,7 +475,7 @@ impl Texture for Texture2D {
     }
 
     fn delete(&self) {
-        println!("Texture1D:{} leave",self.texture);
+        println!("Texture1D:{} leave", self.texture);
         unsafe {
             gl::DeleteTextures(1, &self.texture as *const GLuint);
         }

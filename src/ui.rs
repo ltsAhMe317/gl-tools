@@ -17,7 +17,7 @@ use crate::{
 pub mod font;
 
 const UI_PROGRAM_VERT: &str = include_str!("../shaders/ui/vert.glsl");
-const UI_PROGRAM_FARG: &str = include_str!("../shaders/ui/frag.glsl.glsl");
+const UI_PROGRAM_FARG: &str = include_str!("../shaders/ui/frag.glsl");
 
 static UI_PROGRAM: LazyLock<Program> =
     LazyLock::new(|| Program::basic_new(UI_PROGRAM_VERT, UI_PROGRAM_FARG, None));
@@ -29,8 +29,8 @@ pub fn color(
     size: (f32, f32),
     radius: usize,
 ) {
-    //radius
-    todo!();
+    // //radius
+    // todo!();
     UI_PROGRAM.bind();
     UI_PROGRAM.put_matrix_name(&window_ort(window_size), "project");
 
@@ -171,4 +171,25 @@ pub trait UIobject {
     where
         Self: Sized;
     fn draw_fast(&mut self, window: &mut Window) {}
+}
+
+pub struct UIbutton{
+    pub text_color:(f32,f32,f32,f32),
+    pub pos:(f32,f32),
+    pub size:(f32,f32),
+    pub text:String,
+    pub action:&'static dyn FnMut(&UIbutton)
+}
+impl UIobject for UIbutton{
+    fn draw_fast(&mut self, window: &mut Window) {
+        font::font(|font|{
+            font.draw(&self.text,window.window.get_size(), self.pos.0, self.pos.1,25i32, self.text_color);
+        });
+    }
+    fn draw(&mut self, window: &mut Window, frame: &FrameBuffer) {}
+    fn alloc() -> Option<(usize, usize)>
+    where
+        Self: Sized {
+        None
+    }
 }

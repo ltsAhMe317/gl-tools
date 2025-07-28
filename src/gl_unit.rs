@@ -6,8 +6,8 @@ use glfw::Context;
 use image::ImageFormat;
 
 use core::panic;
-
-use std::ffi::c_void;
+use std::sync::Mutex;
+use std::{cell::RefCell, ffi::c_void};
 use std::path::Path;
 use std::ptr::null;
 use texture::{Texture, Texture2D, TextureWrapper};
@@ -23,6 +23,7 @@ use window::Window;
 
 use crate::Buffer;
 
+#[allow(unused_variables)]
 extern "system" fn debug_callback(
     source: gl::types::GLenum,
     gltype: gl::types::GLenum,
@@ -30,7 +31,7 @@ extern "system" fn debug_callback(
     severity: gl::types::GLenum,
     length: gl::types::GLsizei,
     message: *const gl::types::GLchar,
-    userParam: *mut std::ffi::c_void,
+    user_param: *mut std::ffi::c_void,
 ) {
     let msg = unsafe { std::ffi::CStr::from_ptr(message).to_string_lossy() };
 
@@ -47,7 +48,7 @@ pub fn view_port(x: i32, y: i32, w: i32, h: i32) {
     }
 }
 
-static CLEAN_COLOR: [f32; 4] = [0f32, 0f32, 0f32, 1f32];
+
 
 pub struct GLcontext {}
 unsafe impl Send for GLcontext {}
@@ -300,6 +301,8 @@ impl Drop for FrameBuffer {
 }
 
 pub struct VertexArray {
+    #[cfg(debug_assertions)]
+    is_bind:Mutex<bool>,
     array_id: GLuint,
     pub element_type: Option<GLenum>,
 }
@@ -310,23 +313,31 @@ impl VertexArray {
             gl::GenVertexArrays(1, &mut id);
         }
         Self {
+            #[cfg(debug_assertions)]
+            is_bind:Mutex::new(false),
             array_id: id,
             element_type: None,
         }
     }
 
     pub fn element_bind(&mut self, data: &dyn Buffer) {
-        self.bind(|_| {
-            data.bind_target();
-        });
+        // self.bind(|_| {
+        //     data.bind_target();
+        // });
 
         println!("element bind:{}", data.id());
         self.element_type = Some(data.type_as_gl());
     }
     pub fn pointer(&self, date: &dyn Buffer, pointer: VertexArrayAttribPointerGen) {
-        if date.target() != BufferTarget::Vertex {
-            panic!("[VAO err]buffer target != vertex");
+    #[cfg(debug_assertions)]
+    {
+        if !*self.is_bind.lock().unwrap(){
+            panic!("pointer use but vao not bind")
         }
+if date.target() != BufferTarget::Vertex {
+            panic!("[VAO err]buffer target != vertex");
+            }
+    }            
         date.bind_target();
 
         let (index, once_size, is_normalized, stride, pointer) = (
@@ -349,10 +360,18 @@ impl VertexArray {
             );
         }
     }
+    
     pub fn bind(&self, func: impl FnOnce(&Self)) {
+        
+        #[cfg(debug_assertions)]
+        *self.is_bind.lock().unwrap() = true;
+        
         Self::bind_id(self.array_id);
         func(self);
         Self::bind_id(0);
+
+        #[cfg(debug_assertions)]
+        *self.is_bind.lock().unwrap() = false;
     }
     fn bind_id(id: u32) {
         unsafe {
@@ -360,11 +379,20 @@ impl VertexArray {
         }
     }
     pub fn draw_arrays(&self, mode: DrawMode, offset: i32, count: i32) {
+        #[cfg(debug_assertions)]
+        if !*self.is_bind.lock().unwrap(){
+            panic!("draw_array but not bind vao!");
+        }
+
         unsafe {
             gl::DrawArrays(mode.as_gl(), offset, count);
         }
     }
     pub fn draw_element(&self, mode: DrawMode, offset: u32, count: i32) {
+        #[cfg(debug_assertions)]
+        if !*self.is_bind.lock().unwrap(){
+            panic!()
+        }
         unsafe {
             gl::DrawElements(
                 mode.as_gl(),

@@ -1,7 +1,9 @@
+pub mod system;
+
 use core::panic;
 use std::fs;
 use std::ops::Deref;
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 
 use freetype::face::LoadFlag;
 use freetype::{self as ft, Bitmap, GlyphSlot};
@@ -17,6 +19,31 @@ use crate::gl_unit::{self, view_port};
 use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use std::path::Path;
 
+
+
+pub fn font(func:impl FnOnce(&mut Font)){
+    func(unsafe { &mut FONT.lock().unwrap() })
+} 
+pub static mut FONT:LazyLock<Mutex<Font>> = LazyLock::new(||{
+    let test_char = ['a','A','中','文'];
+    let fonts_dir = system::get_system_font_dirs();
+    let fonts = system::scan_font_files(fonts_dir);
+    for font in fonts.iter(){
+        let face =FT_LIB.new_face(font, 0).unwrap();
+        let mut enter = true;
+        for test_char in test_char{
+            if face.get_char_index(test_char as usize).is_none(){
+                enter = false;
+                break;
+            }
+        }
+        if enter{
+            return Mutex::new(Font::new_file(&font,0));
+        }
+    }
+    panic!("no system font find(中英文支持,chinese,english support)");
+}); 
+
 static FT_LIB: LazyLock<ft::Library> = LazyLock::new(|| ft::Library::init().unwrap());
 
 pub const FONT_SIZE_AUTO: u32 = 0;
@@ -25,7 +52,7 @@ const FT_TEXTURE_H: u32 = 32;
 
 #[derive(Clone, Copy)]
 struct Character {
-    bearing: (i32, i32),
+    bearing: (i32, i32),    
     advance: i64,
 }
 impl Character {
@@ -49,7 +76,7 @@ impl Character {
                     let glyph = font.glyph();
                     (glyph.bitmap_left(), glyph.bitmap_top())
                 },
-                advance: font.advance().x,
+                advance: font.advance().x as i64, //as i64 because windows target is i32
             },
             TextureWrapper(texture),
         )
@@ -90,7 +117,7 @@ impl Font {
         font.set_size(FONT_SIZE_AUTO, FT_TEXTURE_H);
         font
     }
-    pub fn new_file(path: &Path, index: isize) -> Self {
+    pub fn new_file(path: impl AsRef<Path>, index: isize) -> Self {
         Self::new_raw(fs::read(path).unwrap(), index)
     }
 

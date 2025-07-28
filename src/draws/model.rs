@@ -24,6 +24,7 @@ fn document_mesh(document: &Document, buffers: &Vec<Data>) -> Vec<Mesh> {
     }
     vec
 }
+
 fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh> {
     let mut collect_mesh = Vec::new();
     let transfrom_done = transfrom
@@ -41,7 +42,6 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
             let mut normal_list = Vec::new();
             let element;
             let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
-
             if let (Some(pos), Some(uv),Some(normal)) = (reader.read_positions(), reader.read_tex_coords(0),reader.read_normals()) {
                 for (vec, uv) in pos.into_iter().zip(uv.into_u8().into_iter()) {
                     vertex_list.extend(vec);
@@ -232,7 +232,7 @@ mod tests {
     use glfw::Action;
 
     use crate::{
-        draws::{model::MODEL_PROGRAM, vec_from_rad, Camera, Camera3D}, gl_unit::{depth_test, polygon_mode, program::Program, window::Window, GLcontext}, ui::font::Font
+        draws::{model::MODEL_PROGRAM, vec_from_rad, Camera, Camera3D}, gl_unit::{depth_test, polygon_mode, window::Window, GLcontext}, ui::font::Font
     };
 
     use super::Model;
@@ -245,22 +245,22 @@ mod tests {
         let mut look:(f32,f32) = (0f32,0f32);
         let mut camera = Camera3D::new(&window);
         let mut font = Font::new_file(Path::new("./font.otf"), 0);
-        let model = Model::from_path("test.glb");
+        let model = Model::from_path("cao.glb");
         depth_test(true);
         println!("loaded");
         while !window.update() {
             
-            let mut look_vec = vec_from_rad( 0f32,look.0.to_radians())*window.delta_count.delta as f32;
-            let look_vec_right = vec_from_rad( 0f32,(look.0-90f32).to_radians()) * window.delta_count.delta as f32;
+            let look_vec = vec_from_rad( 0f32,look.0.to_radians())*window.delta_count.delta as f32;
+            let look_vec_yaw = vec_from_rad( 0f32,(look.0-90f32).to_radians()) * window.delta_count.delta as f32;
             let delta = window.delta_count.delta as f32;
             if window.window.get_key(glfw::Key::W) == Action::Press{                
                 camera.go_vec( look_vec,delta);
             }
 if window.window.get_key(glfw::Key::A) == Action::Press{
-                camera.go_vec( -look_vec_right,delta);
+                camera.go_vec( -look_vec_yaw,delta);
             }
 if window.window.get_key(glfw::Key::D) == Action::Press{
-                camera.go_vec( look_vec_right,delta);
+                camera.go_vec( look_vec_yaw,delta);
             }
 if window.window.get_key(glfw::Key::S) == Action::Press{
                 camera.go_vec(-look_vec,delta);
@@ -291,14 +291,6 @@ if window.window.get_key(glfw::Key::Left) == Action::Press{
                     &camera.as_mat(),
                     "project_mat",
                 );
-                // MODEL_PROGRAM.put_matrix_name(
-                //     &(Mat4::from_translation(vec3(
-                //         window.delta_count.time_count.sin() as f32,
-                //         0f32,
-                //         0f32,
-                //     )) * Mat4::from_rotation_y(window.delta_count.time_count as f32)),
-                //     "model_mat",
-                // );
                 MODEL_PROGRAM.put_matrix_name(&Mat4::IDENTITY, "model_mat");
                 polygon_mode(
                     crate::gl_unit::define::Face::Front,

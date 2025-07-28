@@ -230,14 +230,14 @@ impl Program {
             }
         }
     }
-    fn get_enum(str: &str) -> GLenum {
-        match str {
-            "add" => gl::FUNC_ADD,
-            "sub" => gl::FUNC_SUBTRACT,
-            "reverse" => gl::FUNC_REVERSE_SUBTRACT,
-            "one" => gl::ONE,
-            "zero" => gl::ZERO,
-            &_ => gl::ZERO,
-        }
-    }
+    // fn get_enum(str: &str) -> GLenum {
+    //     match str {
+    //         "add" => gl::FUNC_ADD,
+    //         "sub" => gl::FUNC_SUBTRACT,
+    //         "reverse" => gl::FUNC_REVERSE_SUBTRACT,
+    //         "one" => gl::ONE,
+    //         "zero" => gl::ZERO,
+    //         &_ => gl::ZERO,
+    //     }
+    // }
 }
