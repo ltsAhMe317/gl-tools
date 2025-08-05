@@ -78,7 +78,7 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
             let normal_buffer = BufferConst::new(BufferTarget::Vertex, &normal_list, BufferUsage::Static);
 
             let mut vertex_array = VertexArray::new();
-            vertex_array.bind(|vao| {
+            vertex_array.bind_mut(|vao| {
                 vao.pointer(
                     &vertex_buffer,
                     VertexArrayAttribPointerGen::new::<f32>(0, 3),
@@ -92,10 +92,11 @@ fn node_next_mesh(buffers: &Vec<Data>, node: &Node, transfrom: Mat4) -> Vec<Mesh
                     &normal_buffer,
                     VertexArrayAttribPointerGen::new::<f32>(2, 3),
                 );
+                vao.element_bind(&element);
                 
             });
 
-            vertex_array.element_bind(&element);
+            
 
             let primitive = PrimitiveData {
                 vertex_buffer,
@@ -199,7 +200,7 @@ impl Model {
     pub fn draw(&self, program: &Program) {
         program.bind();
         for mash in self.mashes.iter() {
-            program.put_matrix_name(&mash.transfrom, "mesh_mat");
+            program.put_matrix_name(mash.transfrom, "mesh_mat");
             program.put_texture(0, program.get_uniform("material_texture"));
             for primitive in mash.primitives.iter() {
                 if let Some(tex_index) = &primitive.material.texture {
@@ -288,10 +289,10 @@ if window.window.get_key(glfw::Key::Left) == Action::Press{
                 MODEL_PROGRAM.bind();
                 let (w, h) = window.window.get_size();
                 MODEL_PROGRAM.put_matrix_name(
-                    &camera.as_mat(),
+                    camera.as_mat(),
                     "project_mat",
                 );
-                MODEL_PROGRAM.put_matrix_name(&Mat4::IDENTITY, "model_mat");
+                MODEL_PROGRAM.put_matrix_name(Mat4::IDENTITY, "model_mat");
                 polygon_mode(
                     crate::gl_unit::define::Face::Front,
                     crate::gl_unit::define::PolygonMode::Fill,

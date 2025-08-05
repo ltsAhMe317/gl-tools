@@ -126,17 +126,17 @@ impl Program {
         }
     }
     
-    pub fn put_matrix3(&self, date: &Mat3, id: GLint) {
+    pub fn put_matrix3(&self, date: Mat3, id: GLint) {
         unsafe {
             gl::UniformMatrix3fv(id, 1, gl::FALSE, date.as_ref().as_ptr());
         }
     }
-    pub fn put_matrix(&self, date: &Mat4, id: GLint) {
+    pub fn put_matrix(&self, date: Mat4, id: GLint) {
         unsafe {
             gl::UniformMatrix4fv(id, 1, gl::FALSE, date.as_ref().as_ptr());
         }
     }
-    pub fn put_matrix_name(&self, date: &Mat4, name: &str) {
+    pub fn put_matrix_name(&self, date: Mat4, name: &str) {
         self.put_matrix(date, self.get_uniform(name));
     }
     pub fn put_vec4(&self, date: [f32; 4], id: GLint) {
@@ -208,7 +208,7 @@ impl Program {
                     "float" => self.put_one(value[0], name_id),
                     "matrix4x4" => {
                         self.put_matrix(
-                            &Mat4::from_cols_array(&(value.as_slice().try_into().unwrap())),
+                            Mat4::from_cols_array(&(value.as_slice().try_into().unwrap())),
                             name_id,
                         );
                         // gl::UniformMatrix4fv(name_id, 1, gl::FALSE, value.as_ptr());

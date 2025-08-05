@@ -21,7 +21,7 @@ use std::path::Path;
 
 
 
-pub fn font(func:impl FnOnce(&mut Font)){
+pub fn font<T>(func:impl FnOnce(&mut Font)->T)->T{
     func(unsafe { &mut FONT.lock().unwrap() })
 } 
 pub static mut FONT:LazyLock<Mutex<Font>> = LazyLock::new(||{
@@ -207,12 +207,11 @@ impl Font {
         let mut x_count = 0f32;
 
         let mut vertex: Vec<f32> = Vec::with_capacity(char_len * 4 * 4);
-
         let chars = self.get_char(str);
         for (index, char) in str.chars().zip(chars.iter()) {
             let uv = self.char_tex.get_uv(&(index as usize)).unwrap();
 
-            let tex_size = uv.get_pixel_size();
+            let tex_size = uv.get_pixel_size(&self.char_tex);
 
             let gl_x = char.bearing.0 as f32 * scale + x_count;
 
@@ -251,8 +250,8 @@ impl Font {
         FT_PROGRAM.put_texture(0, FT_PROGRAM.get_uniform("text"));
         self.char_tex.get_tex().bind_unit(0);
 
-        FT_PROGRAM.put_matrix_name(&(window_ort(window_size)), "project_mat");
-        FT_PROGRAM.put_matrix_name(&Mat4::from_translation(vec3(x, y, 0f32)), "model_mat");
+        FT_PROGRAM.put_matrix_name(window_ort(window_size), "project_mat");
+        FT_PROGRAM.put_matrix_name(Mat4::from_translation(vec3(x, y, 0f32)), "model_mat");
         FT_PROGRAM.put_vec4(
             [color.0, color.1, color.2, color.3],
             FT_PROGRAM.get_uniform("text_color"),
@@ -264,8 +263,6 @@ impl Font {
             VERTEX_BIG_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 4),
         );
-        
-        
             vao.draw_arrays(DrawMode::Quads, 0, str.chars().count() as i32 * 4);
         });
     }

@@ -22,7 +22,6 @@ use crate::{
 
 use super::define::{self, Filter, TextureParm, TextureType, VertexArrayAttribPointerGen};
 use super::{program::PROGRAM2D_TWO, ConstBlend, FrameBuffer};
-const TEXTURE_MAP_MAX: i32 = 480;
 const TEXTURE_MAP_SPLIT: i32 = 1;
 
 #[derive(Clone, Copy, Debug)]
@@ -46,14 +45,13 @@ impl UVindex {
         ]
     }
 
-    pub const fn get_pixel_size(&self) -> (f32, f32) {
+    pub fn get_pixel_size<T:Hash+Eq>(&self,map:&TextureMap<T>) -> (f32, f32) {
         (
-            self.w * TEXTURE_MAP_MAX as f32,
-            self.h * TEXTURE_MAP_MAX as f32,
+            self.w * map.allocator.size().width as f32,
+            self.h * map.allocator.size().width as f32,
         )
     }
 }
-
 pub struct TextureMap<T: Hash + Eq> {
     allocator: AtlasAllocator,
     frame: FrameBuffer,
@@ -121,11 +119,11 @@ impl<T: Hash + Eq> TextureMap<T> {
         let program = PROGRAM2D_TWO.deref();
         program.bind();
         program.put_matrix_name(
-            &Mat4::orthographic_rh_gl(0f32, 1f32, 0f32, 1f32, 1f32, -1f32),
+            Mat4::orthographic_rh_gl(0f32, 1f32, 0f32, 1f32, 1f32, -1f32),
             "project_mat",
         );
 
-        program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
+        program.put_matrix_name(Mat4::IDENTITY, "model_mat");
         program.put_texture(0, program.get_uniform("image"));
         VAO_MUT.bind(|vao| {
             vao.pointer(
@@ -163,11 +161,12 @@ impl<T: Hash + Eq> TextureMap<T> {
                         return Err("can not allocate");
                     }
                 };
+                let size =self.allocator.size();
                 uv = UVindex {
-                    x: rect.min.x as f32 / TEXTURE_MAP_MAX as f32,
-                    y: rect.min.y as f32 / TEXTURE_MAP_MAX as f32,
-                    w: texture.w as f32 / TEXTURE_MAP_MAX as f32,
-                    h: texture.h as f32 / TEXTURE_MAP_MAX as f32,
+                    x: rect.min.x as f32 / size.width as f32,
+                    y: rect.min.y as f32 / size.height as f32,
+                    w: texture.w as f32 / size.width as f32,
+                    h: texture.h as f32 / size.height as f32,
                 };
 
                 VERTEX_MUT.sub_data(
@@ -305,8 +304,8 @@ mod test {
             context.draw_option(&mut window, |_, _| {
                 let program = &PROGRAM2D_ONE;
                 program.bind();
-                program.put_matrix_name(&Mat4::IDENTITY, "project_mat");
-                program.put_matrix_name(&Mat4::IDENTITY, "model_mat");
+                program.put_matrix_name(Mat4::IDENTITY, "project_mat");
+                program.put_matrix_name(Mat4::IDENTITY, "model_mat");
                 program.put_texture(0, program.get_uniform("image"));
                 map.get_tex().bind_unit(0);
 

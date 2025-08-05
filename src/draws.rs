@@ -720,7 +720,7 @@ impl ReanimPlayer {
                     tick.sy.unwrap(),
                 );
                 let vert = {
-                    let (w, h) = texture.get_pixel_size();
+                    let (w, h) = texture.get_pixel_size(tex_map);
                     let vert_org = [vec2(0f32, h), vec2(w, h), vec2(w, 0f32), vec2(0f32, 0f32)];
                     vert_org.map(|vert| {
                         (mat * vert.extend(0f32).extend(1f32)).xy()
@@ -745,11 +745,11 @@ impl ReanimPlayer {
         );
         VERTEX_BIG_MUT.sub_data(&vertexs, 0);
         program.put_texture(0, program.get_uniform("image"));
-        program.put_matrix(&(mat4), program.get_uniform("model_mat"));
+        program.put_matrix(mat4, program.get_uniform("model_mat"));
         let (w, h) = window_size;
         let (w, h) = (w as f32 / 2f32, h as f32 / 2f32);
         program.put_matrix_name(
-            &Mat4::orthographic_rh_gl(-w, w, -h, h, 1f32, -1f32),
+            Mat4::orthographic_rh_gl(-w, w, -h, h, 1f32, -1f32),
             "project_mat",
         );
         
