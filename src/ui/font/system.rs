@@ -1,17 +1,18 @@
-use std::path::{Path, PathBuf};
+use std::path::{ PathBuf};
 
 pub fn get_system_font_dirs() -> Vec<PathBuf> {
     let mut font_dirs = Vec::new();
     
     #[cfg(target_os = "windows")]
     {
-        use winapi::um::winbase::GetWindowsDirectoryW;
+        use winapi::um::sysinfoapi::GetWindowsDirectoryW;
         use std::os::windows::ffi::OsStrExt;
         use std::ptr;
         
         let mut buf = [0u16; 260];
         unsafe {
             GetWindowsDirectoryW(buf.as_mut_ptr(), buf.len() as u32);
+            // FreeConsole();
         }
         let path = PathBuf::from(
             String::from_utf16_lossy(&buf)

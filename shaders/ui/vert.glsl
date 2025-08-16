@@ -1,4 +1,4 @@
-#version 460
+#version 330
     layout (location = 0) in vec2 vert;
     uniform mat4 project;
     void main(){

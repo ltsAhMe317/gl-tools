@@ -21,6 +21,12 @@ const PROGRAM2D_FRAG_ONE: &str = include_str!("../../shaders/program2d_one/frag.
 pub static PROGRAM2D_ONE: LazyLock<Program> =
     LazyLock::new(|| Program::basic_new(PROGRAM2D_VERT_ONE, PROGRAM2D_FRAG_ONE, None));
 
+const PROGRAM3D_VERT_ONE_COLOR: &str = include_str!("../../shaders/program3d_one_color/vert.glsl");
+const PROGRAM3D_FRAG_ONE_COLOR: &str = include_str!("../../shaders/program3d_one_color/frag.glsl");
+pub static PROGRAM3D_ONE_COLOR: LazyLock<Program> =
+    LazyLock::new(|| Program::basic_new(PROGRAM3D_VERT_ONE_COLOR, PROGRAM3D_FRAG_ONE_COLOR, None));
+
+
 pub struct Shader {
     shader_id: GLuint,
 }

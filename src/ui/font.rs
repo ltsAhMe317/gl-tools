@@ -7,7 +7,7 @@ use std::sync::{LazyLock, Mutex};
 
 use freetype::face::LoadFlag;
 use freetype::{self as ft, Bitmap, GlyphSlot};
-use glam::{vec3, Mat4};
+use glam::{Mat4, vec3};
 use std::collections::HashMap;
 
 use crate::draws::window_ort;
@@ -19,30 +19,32 @@ use crate::gl_unit::{self, view_port};
 use crate::{VAO_MUT, VERTEX_BIG_MUT};
 use std::path::Path;
 
-
-
-pub fn font<T>(func:impl FnOnce(&mut Font)->T)->T{
-    func(unsafe { &mut FONT.lock().unwrap() })
-} 
-pub static mut FONT:LazyLock<Mutex<Font>> = LazyLock::new(||{
-    let test_char = ['a','A','中','文'];
+pub fn font<T>(func: impl FnOnce(&mut Font) -> T) -> T {
+    unsafe {
+        #[allow(static_mut_refs)]
+        let mut font = FONT.lock().unwrap();
+        func(&mut font)
+    }
+}
+pub static mut FONT: LazyLock<Mutex<Font>> = LazyLock::new(|| {
+    let test_char = ['a', 'A', '傻', '逼'];
     let fonts_dir = system::get_system_font_dirs();
     let fonts = system::scan_font_files(fonts_dir);
-    for font in fonts.iter(){
-        let face =FT_LIB.new_face(font, 0).unwrap();
+    for font in fonts.iter() {
+        let face = FT_LIB.new_face(font, 0).unwrap();
         let mut enter = true;
-        for test_char in test_char{
-            if face.get_char_index(test_char as usize).is_none(){
+        for test_char in test_char {
+            if face.get_char_index(test_char as usize).is_none() {
                 enter = false;
                 break;
             }
         }
-        if enter{
-            return Mutex::new(Font::new_file(&font,0));
+        if enter {
+            return Mutex::new(Font::new_file(&font, 0));
         }
     }
     panic!("no system font find(中英文支持,chinese,english support)");
-}); 
+});
 
 static FT_LIB: LazyLock<ft::Library> = LazyLock::new(|| ft::Library::init().unwrap());
 
@@ -52,7 +54,7 @@ const FT_TEXTURE_H: u32 = 32;
 
 #[derive(Clone, Copy)]
 struct Character {
-    bearing: (i32, i32),    
+    bearing: (i32, i32),
     advance: i64,
 }
 impl Character {
@@ -258,11 +260,10 @@ impl Font {
         );
         VERTEX_BIG_MUT.sub_data(&vertex, 0);
         VAO_MUT.bind(|vao| {
-
-        vao.pointer(
-            VERTEX_BIG_MUT.deref(),
-            VertexArrayAttribPointerGen::new::<f32>(0, 4),
-        );
+            vao.pointer(
+                VERTEX_BIG_MUT.deref(),
+                VertexArrayAttribPointerGen::new::<f32>(0, 4),
+            );
             vao.draw_arrays(DrawMode::Quads, 0, str.chars().count() as i32 * 4);
         });
     }
@@ -271,7 +272,7 @@ impl Font {
 mod test {
     use std::path::Path;
 
-    use crate::gl_unit::{window::Window, GLcontext};
+    use crate::gl_unit::{GLcontext, window::Window};
 
     use super::Font;
 

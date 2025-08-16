@@ -102,8 +102,10 @@ impl Window {
             window.0.make_current();
             glfw_lock.set_swap_interval(SwapInterval::None);
             window.0.glfw.make_context_current(None);
+            
+            window.0.set_key_polling(false);
             window.0.set_char_polling(true);
-            window.0.set_key_polling(true);
+            
             Self {
                 events: window.1,
                 delta_count: Timer::new(),

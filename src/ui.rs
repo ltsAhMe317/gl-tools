@@ -1,20 +1,10 @@
-use std::{
-    collections::{ HashSet},
-    ops::Deref,
-    sync::LazyLock,
-};
 use glam::{Mat4, Vec2};
+use std::{any::{Any, TypeId}, collections::HashSet, ops::Deref, sync::LazyLock};
 
 use crate::{
-    draws::window_ort,
-    gl_unit::{
-        define::{DrawMode, VertexArrayAttribPointerGen},
-        program::{Program, PROGRAM2D_TWO},
-        texture::{Texture, Texture2D, TextureMap },
-        window::Window,
-        FrameBuffer,
-    },
-    TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VAO_STATIC, VERTEX_MUT,
+    draws::window_ort, gl_unit::{
+        define::{DrawMode, VertexArrayAttribPointerGen}, program::{Program, PROGRAM2D_TWO}, texture::{Texture, Texture2D, TextureMap}, window::Window, FrameBuffer
+    }, ui::{layout::{LayoutPos, ListLayout, WindowLayout}, object::UItext}, TEX_VERTEX_YFLIP_STATIC, VAO_MUT, VAO_STATIC, VERTEX_MUT
 };
 
 pub mod font;
@@ -84,7 +74,7 @@ pub fn texture_map(texture: &TextureMap<String>, name: &str, pos: Vec2) {
 
 #[cfg(test)]
 mod test {
-    use crate::gl_unit::{window::Window, GLcontext};
+    use crate::gl_unit::{GLcontext, window::Window};
 
     use super::color;
 
@@ -136,7 +126,6 @@ impl KeyStream {
         }
     }
     pub fn cursor_close(&mut self) -> bool {
-
         if self.cursor_close {
             false
         } else {
@@ -167,11 +156,7 @@ impl Frame {
     pub fn add<T: UIrender + 'static>(&mut self, obj: T) {
         self.object.push(Box::new(obj) as Box<dyn UIrender>);
     }
-    pub fn draw(&mut self, window: &mut Window, key_stream: &mut KeyStream) {
-        for obj in self.object.iter_mut().rev(){
-            obj.update(window, key_stream);
-        }
-
+    pub fn draw(&self, window: &mut Window) {
         for obj in self.object.iter() {
             if let Some(fb) = obj.draw() {
                 fb.view_port();
@@ -189,22 +174,40 @@ impl Frame {
             window.view_port();
             obj.fast_draw(window);
         }
-        
+    }
+    pub fn update(&mut self, window: &mut Window, key_stream: &mut KeyStream) {
+        for obj in self.object.iter_mut().rev() {
+            obj.update(window, key_stream);
+        }
     }
 }
 
 pub trait UIlayout {
     fn size(&self) -> (f32, f32);
     fn set_pos(&mut self, pos: (f32, f32));
+    
 }
-pub trait UIrender {
+pub trait UIrender:Any {
     fn draw(&self) -> Option<&FrameBuffer>;
-
     fn fast_draw(&self, window: &mut Window);
-    fn update(&mut self,window: &mut Window,key_stream:&mut KeyStream);
+    fn update(&mut self, window: &mut Window, key_stream: &mut KeyStream);
 }
 
 trait UIObject: UIrender + UIlayout {}
 impl<T: UIrender + UIlayout> UIObject for T {}
 pub mod layout;
 pub mod object;
+
+macro_rules! Layout {
+    ($type:ident($($value:expr),*) pak $($obj:expr)*) => {
+        {
+            let mut some =$type::new($($value,)*);
+            $(some.add_obj($obj);)*
+            some
+        }
+    };
+}
+#[test]
+pub fn test() {
+    let layout = Layout!(ListLayout(LayoutPos::Right,10f32,(0f32,0f32)) pak);
+}

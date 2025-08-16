@@ -205,6 +205,7 @@ macro_rules! enums_index_creater {
 
     };
 }
+#[macro_export]
 macro_rules! setter_gen {
     ($name:ident{$($var:ident:$var_type:ty),* }) => {
         pub struct $name {
@@ -219,6 +220,17 @@ macro_rules! setter_gen {
             )*
         }
     };
+    (impl $name:ident{$($var:ident:$var_type:ty),* }) => {
+                impl $name {
+            $(
+                pub fn $var(mut self,value:$var_type)->Self{
+                    self.$var = value;
+                    self
+                }
+            )*
+        }
+    };
+
 }
 enums_creater! {
     Blend {
@@ -326,12 +338,12 @@ impl VertexArrayAttribPointerGen {
             pointer: 0,
         }
     }
-    pub const fn new_size(index: u32,len:i32, size: i32) -> Self {
+    pub const fn new_size(index: u32,len:i32, type_size: i32) -> Self {
         Self {
             index,
             len,
             is_normalized: false,
-            stride_size: len * size,
+            stride_size: len * type_size,
             pointer: 0,
         }
     }

@@ -1,11 +1,13 @@
-use std::collections::HashMap;
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+};
 
 use crate::{
-    gl_unit::{window::Window, FrameBuffer},
+    gl_unit::{FrameBuffer, window::Window},
     ui::{
-        color, font,
-        object::{rc_refcell, UItext},
-        KeyStream, UIObject, UIlayout, UIrender,
+        KeyStream, UIObject, UIlayout, UIrender, color, font,
+        object::{UItext, rc_refcell},
     },
 };
 
@@ -19,7 +21,7 @@ pub enum LayoutPos {
     Round,
 }
 pub struct FloatLayout<T: UIlayout + UIrender> {
-    obj: T,
+    pub obj: T,
     float: (LayoutPos, LayoutPos),
 }
 impl<T> FloatLayout<T>
@@ -28,6 +30,9 @@ where
 {
     pub fn new(obj: T, float: (LayoutPos, LayoutPos)) -> Self {
         Self { obj, float }
+    }
+    pub fn add_obj(&mut self, obj: Box<dyn UIObject>) {
+        self.obj = *Box::<dyn Any>::downcast::<T>(obj).unwrap();
     }
 }
 impl<T> UIrender for FloatLayout<T>
@@ -171,6 +176,9 @@ impl ListLayout {
             list_mode,
         }
     }
+    pub fn add_obj(&mut self, obj: Box<dyn UIObject>) {
+        self.group.push(obj);
+    }
     pub fn add<T: UIObject + 'static>(&mut self, obj: T) {
         self.group.push(Box::new(obj) as Box<dyn UIObject>);
     }
@@ -185,9 +193,9 @@ pub struct WindowLayout<T: UIObject> {
 impl<T: UIObject> WindowLayout<T> {
     pub fn new(pos: (f32, f32), title: &str, title_size: i32, obj: T) -> Self {
         let text = UItext {
-            text_color: (0f32, 0f32, 0f32, 1f32),
+            color: (0f32, 0f32, 0f32, 1f32),
             pos: (0f32, 0f32),
-            size: title_size,
+            text_size: title_size,
             text: rc_refcell(title.to_string()),
         };
         let mut bound = BoundLayout {
@@ -202,6 +210,10 @@ impl<T: UIObject> WindowLayout<T> {
             last_cursor_pos: None,
             title: bound,
         }
+    }
+    pub fn add_obj(&mut self, obj: Box<dyn UIObject>) {
+        let obj = Box::<dyn Any>::downcast::<T>(obj).unwrap();
+        self.obj = *obj;
     }
 }
 impl<T: UIObject> UIrender for WindowLayout<T> {
@@ -223,7 +235,7 @@ impl<T: UIObject> UIrender for WindowLayout<T> {
         let title_size = self.title.size();
         let title_pos = {
             let mut size = self.pos;
-            size.1 += obj_size.1+title_size.1;
+            size.1 += obj_size.1 + title_size.1;
             size
         };
         let title_size = (
@@ -308,6 +320,9 @@ impl<T: UIObject> BoundLayout<T> {
     pub fn add_bound(&mut self, pos: LayoutPos, value: f32) {
         self.bound.insert(pos, value);
     }
+    pub fn add_obj(&mut self, obj: Box<dyn UIObject>) {
+        self.obj = *Box::<dyn Any>::downcast(obj).unwrap();
+    }
 }
 impl<T: UIObject> UIrender for BoundLayout<T> {
     fn draw(&self) -> Option<&FrameBuffer> {
@@ -323,14 +338,12 @@ impl<T: UIObject> UIrender for BoundLayout<T> {
         let (w, h) = self.size();
         if let Some(value) = self.bound.get(&LayoutPos::Left) {
             pos.0 = pos.0 + value;
-        }
-        if let Some(value) = self.bound.get(&LayoutPos::Right) {
+        } else if let Some(value) = self.bound.get(&LayoutPos::Right) {
             pos.0 = pos.0 + w - value - obj_w;
         }
         if let Some(value) = self.bound.get(&LayoutPos::Top) {
             pos.1 = pos.1 + h - obj_h - value;
-        }
-        if let Some(value) = self.bound.get(&LayoutPos::Bottom) {
+        } else if let Some(value) = self.bound.get(&LayoutPos::Bottom) {
             pos.1 = pos.1 + value;
         }
         if let Some(value) = self.bound.get(&LayoutPos::Round) {
@@ -342,6 +355,8 @@ impl<T: UIObject> UIrender for BoundLayout<T> {
         self.obj.set_pos(pos);
         self.obj.update(window, key_stream);
     }
+
+    
 }
 impl<T: UIObject> UIlayout for BoundLayout<T> {
     fn size(&self) -> (f32, f32) {

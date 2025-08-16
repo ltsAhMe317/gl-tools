@@ -74,6 +74,7 @@ impl GLcontext {
                 gl::Viewport(pos_x as GLint, 0, width as GLsizei, resize_h as GLsizei);
             }
         }
+        #[cfg(debug_assertions)]
         unsafe {
             gl::Enable(gl::DEBUG_OUTPUT);
             gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
@@ -366,9 +367,9 @@ impl VertexArray {
             gl::BindVertexArray(id);
         }
     }
-    pub fn draw_arrays(&self, mode: DrawMode, offset: i32, count: i32) {
+    pub fn draw_arrays(&self, mode: DrawMode, offset: i32, vertex_count: i32) {
         unsafe {
-            gl::DrawArrays(mode.as_gl(), offset, count);
+            gl::DrawArrays(mode.as_gl(), offset, vertex_count);
         }
     }
     pub fn draw_element(&self, mode: DrawMode, offset: u32, count: i32) {
