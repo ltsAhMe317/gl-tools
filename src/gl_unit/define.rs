@@ -172,6 +172,7 @@ macro_rules! enums_creater {
 macro_rules! two_enums_creater {
         ($($name:ident {$($var:ident),* $(,)?})*)=>{
         $(
+            #[derive(PartialEq,Clone,Copy)]
             pub enum $name{
                 $($var,)*
             }

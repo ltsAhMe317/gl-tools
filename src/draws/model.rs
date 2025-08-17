@@ -34,7 +34,6 @@ fn node_next_mesh(
     let mut collect_mesh = HashMap::new();
     let transfrom_done = transfrom
         * Mat4::from_cols_array(&unsafe { std::mem::transmute(node.transform().matrix()) });
-
     if let Some(mesh) = node.mesh() {
         let mut datas = Vec::new();
         for primitive in mesh.primitives() {
@@ -268,10 +267,10 @@ fn animation_update(
     
             let mat = if let Some(mat) = offset.remove(&node.index()) {
                     mat
-                }else{
+            }else{
                     let mat = node.transform().matrix();
                     Mat4::from_cols_array_2d(&mat)
-                } * last_mat;
+            } * last_mat;
                 
             for mesh_check in node.mesh() {
                     for (mesh_index, mesh) in mesh.iter_mut() {
@@ -280,18 +279,23 @@ fn animation_update(
                             break;
                         }
                     }
-                }
+            }
             for child in node.children().map(|child|{child as Node}){
                     animation_update(mat, mesh,&child, offset.clone());
             }
 }
 
 
+
+pub enum PlayMode{
+    Normal,Repeat
+}
 pub struct ModelPlayer<'a> {
     pub aabb: AABB,
     mashes: HashMap<usize, Mesh>,
     time: f32,
     animation: Option<Animation<'a>>,
+    pub play_mode:PlayMode
 }
 
 impl<'a> ModelPlayer<'a> {
@@ -315,6 +319,7 @@ impl<'a> ModelPlayer<'a> {
             mashes,
             time: 0f32,
             animation: animation,
+            play_mode: PlayMode::Repeat,
         }
     }
     pub fn time(&mut self, value: f32) {
@@ -347,20 +352,17 @@ impl<'a> ModelPlayer<'a> {
                         break;
                     }
                 }
-                
-                // let start_asp = self.time - start_time;
-                // let end_asp = end_time -self.time;
-                // let add_asp = start_asp+end_asp;
+                if start_time>end_time{
+                    match self.play_mode{
+                        PlayMode::Normal => {return;},
+                        PlayMode::Repeat => {self.time=0f32;return;},
+                    }
+                }
 
                 let total = end_time-start_time;
                 let asp:(f32,f32) = ((self.time-start_time)/total,(end_time-self.time)/total); 
-                let sample = channel.sampler().interpolation();
-                match sample{
-                    gltf::animation::Interpolation::Linear => println!("linear"),
-                    gltf::animation::Interpolation::Step => println!("step"),
-                    gltf::animation::Interpolation::CubicSpline =>println!("cub"),
-                }
-                let mat=match value_list{
+
+                               let mat=match value_list{
                     ReadOutputs::Translations(iter) => {
                         let mut start = Vec3::default();
                         let mut end = Vec3::default();
@@ -460,13 +462,13 @@ impl Model {
                     gltf::image::Format::R32G32B32FLOAT => TextureType::RGB32,
                     gltf::image::Format::R32G32B32A32FLOAT => TextureType::RGBA32,
                 };
-
+                dbg!(data.format);
                 TextureWrapper(Texture2D::load(
                     Some(data.pixels.as_slice()),
                     tex_type,
                     data.width,
                     data.height,
-                    TextureParm::new(),
+                    if tex_type.eq(&TextureType::RGB8){TextureParm::new().once_load_size(1)}else{ TextureParm::new()},
                 ))
             })
             .collect::<Vec<TextureWrapper<Texture2D>>>();
