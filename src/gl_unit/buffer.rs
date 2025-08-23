@@ -27,11 +27,11 @@ pub static TEX_VERTEX_STATIC: LazyLock<BufferConst<f32>> = LazyLock::new(|| {
 pub static VAO_STATIC: LazyLock<VertexArray> = LazyLock::new(|| {
     let vao = VertexArray::new();
     vao.bind(|vao| {
-        vao.pointer(
+        vao.bind_pointer(
             VERTEX_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 2),
         );
-        vao.pointer(
+        vao.bind_pointer(
             TEX_VERTEX_STATIC.deref(),
             VertexArrayAttribPointerGen::new::<f32>(1, 2),
         );
@@ -68,7 +68,7 @@ pub trait Buffer {
     fn type_as_gl(&self) -> GLenum;
     fn target(&self) -> BufferTarget;
     fn id(&self) -> GLuint;
-    fn len(&self) -> usize;
+    fn count(&self) -> usize;
     fn bind_target(&self) {
         bind_buffer(self.target(), self.id());
     }
@@ -97,7 +97,7 @@ impl Buffer for BufferObject {
         self.id
     }
 
-    fn len(&self) -> usize {
+    fn count(&self) -> usize {
         self.len
     }
 
@@ -160,7 +160,7 @@ impl<T: TypeGL + 'static> BufferConst<T> {
         unsafe { Self::new_raw(target, null(), len, usage) }
     }
     pub fn sub_data(&self, data: &[T], offset: usize) {
-        if data.len() > self.len() {
+        if data.len() > self.count() {
             panic!("[sub data err]data's len > buffer");
         }
         self.bind_target();
@@ -194,7 +194,7 @@ impl<T: TypeGL> Buffer for BufferConst<T> {
         self.id
     }
 
-    fn len(&self) -> usize {
+    fn count(&self) -> usize {
         self.len
     }
 

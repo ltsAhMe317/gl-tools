@@ -740,7 +740,7 @@ impl ReanimPlayer {
         gl_unit::const_blend(ConstBlend::Normal);
         program.bind();
         VAO_MUT.bind(|vao|{
-        vao.pointer(
+        vao.bind_pointer(
             VERTEX_BIG_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 4),
         );

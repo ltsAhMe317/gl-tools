@@ -323,7 +323,7 @@ impl VertexArray {
         println!("element bind:{}", data.id());
         self.element_type = Some(data.type_as_gl());
     }
-    pub fn pointer(&self, date: &dyn Buffer, pointer: VertexArrayAttribPointerGen) {
+    pub fn bind_pointer(&self, date: &dyn Buffer, pointer: VertexArrayAttribPointerGen) {
         {
             if date.target() != BufferTarget::Vertex {
                 panic!("[VAO err]buffer target != vertex");

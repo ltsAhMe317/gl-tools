@@ -56,11 +56,11 @@ pub fn texture_y_flip(window_size: (i32, i32), texture: &Texture2D, pos: Vec2, s
     let (x, y, w, h) = (pos.x, pos.y, size.x, size.y);
     VERTEX_MUT.sub_data(&[x, y, x + w, y, x + w, y - h, x, y - h], 0);
     VAO_MUT.bind(|vao| {
-        vao.pointer(
+        vao.bind_pointer(
             TEX_VERTEX_YFLIP_STATIC.deref(),
             VertexArrayAttribPointerGen::new::<f32>(1, 2),
         );
-        vao.pointer(
+        vao.bind_pointer(
             VERTEX_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 2),
         );

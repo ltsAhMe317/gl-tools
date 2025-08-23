@@ -165,6 +165,12 @@ macro_rules! enums_creater {
                         $(Self::$var => gl_enum!($var),)*
                     }
                 }
+                pub const fn from_gl(gl_enum:GLenum)->Self{
+                    match gl_enum{
+                        $(gl_enum!($var) => Self::$var,)*
+                        _=>{panic!("gl_enum not support.")}
+                    }
+                }
             }
         )*
     };

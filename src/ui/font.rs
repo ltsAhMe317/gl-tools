@@ -260,7 +260,7 @@ impl Font {
         );
         VERTEX_BIG_MUT.sub_data(&vertex, 0);
         VAO_MUT.bind(|vao| {
-            vao.pointer(
+            vao.bind_pointer(
                 VERTEX_BIG_MUT.deref(),
                 VertexArrayAttribPointerGen::new::<f32>(0, 4),
             );

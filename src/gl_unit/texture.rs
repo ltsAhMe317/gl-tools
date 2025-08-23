@@ -126,7 +126,7 @@ impl<T: Hash + Eq> TextureMap<T> {
         program.put_matrix_name(Mat4::IDENTITY, "model_mat");
         program.put_texture(0, program.get_uniform("image"));
         VAO_MUT.bind(|vao| {
-            vao.pointer(
+            vao.bind_pointer(
                 if y_flip {
                     TEX_VERTEX_YFLIP_STATIC.deref()
                 } else {
@@ -134,7 +134,7 @@ impl<T: Hash + Eq> TextureMap<T> {
                 },
                 VertexArrayAttribPointerGen::new::<f32>(1, 2),
             );
-            vao.pointer(
+            vao.bind_pointer(
                 VERTEX_MUT.deref(),
                 VertexArrayAttribPointerGen::new::<f32>(0, 2),
             );
@@ -291,11 +291,11 @@ mod test {
         window.view_port();
         window.window.show();
 
-        VAO_MUT.pointer(
+        VAO_MUT.bind_pointer(
             VERTEX_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(0, 2),
         );
-        VAO_MUT.pointer(
+        VAO_MUT.bind_pointer(
             TEX_VERTEX_MUT.deref(),
             VertexArrayAttribPointerGen::new::<f32>(1, 2),
         );
