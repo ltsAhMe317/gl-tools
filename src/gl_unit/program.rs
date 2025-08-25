@@ -137,9 +137,9 @@ impl Program {
             gl::UniformMatrix3fv(id, 1, gl::FALSE, date.as_ref().as_ptr());
         }
     }
-    pub fn put_matrix_vec(&self,data:&[Mat4],id:GLint){
-        for (index,data) in data.iter().enumerate(){
-            self.put_matrix(*data, id+index as i32);
+    pub fn put_matrix_vec(&self,vec:&[Mat4],id:GLint){
+        for (index,data) in vec.iter().enumerate(){
+            self.put_matrix(*data, (id+index as i32));
         }
     }
     pub fn put_matrix(&self, date: Mat4, id: GLint) {

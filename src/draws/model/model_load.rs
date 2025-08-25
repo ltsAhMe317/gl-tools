@@ -30,27 +30,58 @@ fn node_path(root: &Node, target: &Node) -> Option<Vec<usize>> {
     }
     None
 }
+// fn global_mat<'a>(root: &'a Node, target: &'a Node, change: &HashMap<usize, Mat4>) -> Mat4 {
+//     if root.index() == target.index() {
+//         let mut mat = node_mat4(root);
+//         // 将offset作为相对变换应用到原始矩阵上
+//         if let Some(offset) = change.get(&root.index()) {
+//             mat = mat * *offset;  // 或者 *offset * mat，取决于顺序
+//         }
+//         return mat;
+//     }
+
+//     let path = node_path(root, target).unwrap_or_default();
+//     let mut mat = node_mat4(root);
+//     let mut node = root.clone();
+
+//     for index in path {
+//         node = node.children().nth(index).unwrap();
+//         let mut node_mat = node_mat4(&node);
+
+//         // 应用offset作为相对变换
+//         if let Some(offset) = change.get(&node.index()) {
+//             node_mat = node_mat * *offset;  // 关键修复！
+//         }
+
+//         mat = mat * node_mat;
+//     }
+
+//     mat
+// }
 fn global_mat<'a>(root: &'a Node, target: &'a Node, change: &HashMap<usize, Mat4>) -> Mat4 {
     if root.index() == target.index() {
-        let mut mat = node_mat4(root);
-        if let Some(change) = change.get(&root.index()) {
-            mat = mat * change;
-        }
-        return mat;
+        return change
+            .get(&root.index())
+            .copied()
+            .unwrap_or(node_mat4(root));
     }
     let path = node_path(root, target);
     if path.is_none() {
-        return Mat4::IDENTITY;
+        return change.get(&target.index()).map(|mat|{*mat}).unwrap_or(node_mat4(target));
     }
     let path = path.unwrap();
-    let mut mat = node_mat4(root);
+    let mut mat = change
+        .get(&root.index())
+        .map(|mat| *mat)
+        .unwrap_or(node_mat4(root));
     let mut node = root.clone();
     for index in path {
         node = node.children().nth(index).unwrap();
-        mat = mat * node_mat4(&node);
-        if let Some(change_mat) = change.get(&node.index()).map(|mat| *mat) {
-            mat *= change_mat;
-        }
+        mat = mat
+            * change
+                .get(&node.index())
+                .map(|mat| *mat)
+                .unwrap_or(node_mat4(&node));
     }
     mat
 }
@@ -74,12 +105,12 @@ impl Model {
         change: &HashMap<usize, Mat4>,
     ) -> Option<Vec<Mat4>> {
         let skin = node.skin()?;
+        let node_global_mat = self.global_mat(node);
         let inverse_mat: Vec<Mat4> = skin
             .reader(|index| Some(&self.data[index.index()]))
             .read_inverse_bind_matrices()?
             .map(|mat| Mat4::from_cols_array_2d(&mat))
             .collect();
-
         let global_mat: Vec<Mat4> = skin
             .joints()
             .map(|joint| self.global_mat_change(&joint, &change))
@@ -87,7 +118,7 @@ impl Model {
         let joint_mat: Vec<Mat4> = inverse_mat
             .iter()
             .zip(global_mat.iter())
-            .map(|(inverse, global)| global * inverse)
+            .map(|(inverse, global)|  global * inverse)
             .collect();
 
         Some(joint_mat)

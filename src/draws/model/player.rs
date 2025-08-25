@@ -209,94 +209,86 @@ impl<'a> Player<'a> {
     fn change_all(&self) -> HashMap<usize, Mat4> {
         let mut change = HashMap::new();
         for anim in self.model.document.animations() {
-            for channel in anim.channels() {
-                
+            for channel in anim.channels() {               
                 let target = channel.target();
                 let target_id  = target.node().index();
                 let reader = channel.reader(|id| Some(&self.model.data[id.index()]));
                 let input = reader.read_inputs().unwrap();
-                let output_mat =  output_mat(input,reader.read_outputs().unwrap(),self.time);
-                *change.entry(target_id).or_insert(output_mat) *= output_mat;
+                let output_mat = output_mat(input,reader.read_outputs().unwrap(),self.time);
+                // *change.entry(&target_id).or_insert(output_mat) *= output_mat;
+                // 傻逼 👆 
+                if let Some(mat) = change.get_mut(&target_id){
+                    *mat *= output_mat;
+                }else{
+                    change.insert(target_id, output_mat);
+                }
             }
         }
         change
     }
 }
 
+
+
 fn output_mat(input: gltf::accessor::Iter<f32>, output: ReadOutputs, timer: f32) -> Mat4 {
-    let mut start_time = 0f32;
+    let mut times: Vec<f32> = input.collect();
+    times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    
     let mut start_index = 0;
-    let mut end_time = 0f32;
     let mut end_index = 0;
-    for (count, const_time) in input.enumerate() {
-        if timer >= const_time {
-            start_time = const_time;
-            start_index = count;
-        }
-        if const_time >= timer {
-            end_time = const_time;
-            end_index = count;
+    
+    for i in 0..times.len() - 1 {
+        if timer >= times[i] && timer <= times[i + 1] {
+            start_index = i;
+            end_index = i + 1;
             break;
         }
     }
+    
+    let start_time = times[start_index];
+    let end_time = times[end_index];
+    
+    // 2. 计算正确的插值比例
     let total = end_time - start_time;
-    let asp: (f32, f32) = ((timer - start_time) / total, (end_time - timer) / total);
-
+    let ratio = if total > 0.0 {
+        (timer - start_time) / total
+    } else {
+        0.0
+    };
+    
     match output {
         ReadOutputs::Translations(iter) => {
-            let mut start = Vec3::default();
-            let mut end = Vec3::default();
-            for (count, value) in iter.enumerate() {
-                if count == start_index {
-                    start = vec3(value[0], value[1], value[2]);
-                }
-                if count == end_index {
-                    end = vec3(value[0], value[1], value[2]);
-                    break;
-                }
-            }
-
-            start *= asp.0;
-            end *= asp.1;
-            let result = (start + end) / 2f32;
+            let translations: Vec<[f32; 3]> = iter.collect();
+            let start = Vec3::from_array(translations[start_index]);
+            let end = Vec3::from_array(translations[end_index]);
+            
+            // 正确的线性插值
+            let result = start.lerp(end, ratio);
+            println!("trans:{result}");  // 添加更多调试信息
             Mat4::from_translation(result)
         }
         ReadOutputs::Rotations(rotations) => {
-            let mut start = Vec4::default();
-            let mut end = Vec4::default();
-            for (count, value) in rotations.into_f32().enumerate() {
-                if count == start_index {
-                    start = Vec4::from_array(value);
-                }
-                if count == end_index {
-                    end = Vec4::from_array(value);
-                    break;
-                }
-            }
+            let rots: Vec<[f32; 4]> = rotations.into_f32().collect();
+            let start = Quat::from_array(rots[start_index]);
+            let end = Quat::from_array(rots[end_index]);
+            
+            // 正确的四元数球面线性插值
+            let result = start.slerp(end, ratio);
+            // println!("rotate:{result}");  // 添加更多调试信息
 
-            start *= asp.0;
-            end *= asp.1;
-            let result = (start + end) / 2f32;
-            Mat4::from_quat(Quat::from_xyzw(result.x, result.y, result.z, result.w))
+            Mat4::from_quat(result)
         }
         ReadOutputs::Scales(iter) => {
-            let mut start = Vec3::default();
-            let mut end = Vec3::default();
-            for (count, value) in iter.enumerate() {
-                if count == start_index {
-                    start = vec3(value[0], value[1], value[2]);
-                }
-                if count == end_index {
-                    end = vec3(value[0], value[1], value[2]);
-                    break;
-                }
-            }
-
-            start *= asp.0;
-            end *= asp.1;
-            let result = (start + end) / 2f32;
+            let scales: Vec<[f32; 3]> = iter.collect();
+            let start = Vec3::from_array(scales[start_index]);
+            let end = Vec3::from_array(scales[end_index]);
+            
+            // 正确的线性插值
+            let result = start.lerp(end, ratio);
+            // println!("scale:{result}");  // 添加更多调试信息
+            
             Mat4::from_scale(result)
         }
-        ReadOutputs::MorphTargetWeights(morph_target_weights) => todo!(),
+        ReadOutputs::MorphTargetWeights(_) =>todo!(),
     }
 }
