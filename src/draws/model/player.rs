@@ -145,7 +145,9 @@ const MODEL_PROGRAM_VERT: &str = include_str!("../../../shaders/model/vert.glsl"
 const MODEL_PROGRAM_FRAG: &str = include_str!("../../../shaders/model/frag.glsl");
 pub static MODEL_PROGRAM: LazyLock<Program> =
     LazyLock::new(|| Program::basic_new(MODEL_PROGRAM_VERT, MODEL_PROGRAM_FRAG, None));
-
+pub enum PlayMode{
+    Repeat(f32),Once
+}
 pub struct Player<'a> {
     meshes: Vec<Mesh<'a>>,
     model: &'a Model,
@@ -198,15 +200,18 @@ impl<'a> Player<'a> {
     pub fn time_add(&mut self, value: f32) {
         self.time += value;
     }
-    pub fn update_animation(&mut self) {
-        let change = self.change_all();
+    pub fn update_animation(&mut self,play:PlayMode) {
+        let change = self.change_all().unwrap_or_else(||{if let PlayMode::Repeat(start)=play{ self.time=start;}HashMap::new()});
+        if change.is_empty(){
+            return;
+        }
         for mesh in self.meshes.iter_mut() {
             mesh.transfrom = self.model.global_mat_change(&mesh.parent, &change);
             mesh.joints_mat = self.model.joint_mat_change(&mesh.parent,&change);
         }
     }
 
-    fn change_all(&self) -> HashMap<usize, Mat4> {
+    fn change_all(&self) -> Option<HashMap<usize, Mat4>> {
         let mut change = HashMap::new();
         for anim in self.model.document.animations() {
             for channel in anim.channels() {               
@@ -214,7 +219,11 @@ impl<'a> Player<'a> {
                 let target_id  = target.node().index();
                 let reader = channel.reader(|id| Some(&self.model.data[id.index()]));
                 let input = reader.read_inputs().unwrap();
-                let output_mat = output_mat(input,reader.read_outputs().unwrap(),self.time);
+
+                
+                let output_mat = output_mat(input,reader.read_outputs().unwrap(),self.time)?;
+
+                
                 // *change.entry(&target_id).or_insert(output_mat) *= output_mat;
                 // 傻逼 👆 
                 if let Some(mat) = change.get_mut(&target_id){
@@ -224,16 +233,18 @@ impl<'a> Player<'a> {
                 }
             }
         }
-        change
+        Some(change)
     }
 }
 
 
 
-fn output_mat(input: gltf::accessor::Iter<f32>, output: ReadOutputs, timer: f32) -> Mat4 {
+fn output_mat(input: gltf::accessor::Iter<f32>, output: ReadOutputs, timer: f32) -> Option<Mat4> {
     let mut times: Vec<f32> = input.collect();
     times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    
+    if timer>*times.last().unwrap(){
+        return None;
+    }
     let mut start_index = 0;
     let mut end_index = 0;
     
@@ -244,51 +255,41 @@ fn output_mat(input: gltf::accessor::Iter<f32>, output: ReadOutputs, timer: f32)
             break;
         }
     }
-    
+       
     let start_time = times[start_index];
     let end_time = times[end_index];
-    
     // 2. 计算正确的插值比例
     let total = end_time - start_time;
+    // let ratio = (timer - start_time) / total;
     let ratio = if total > 0.0 {
         (timer - start_time) / total
     } else {
-        0.0
+        0f32
     };
     
-    match output {
+    let out =match output {
         ReadOutputs::Translations(iter) => {
             let translations: Vec<[f32; 3]> = iter.collect();
             let start = Vec3::from_array(translations[start_index]);
             let end = Vec3::from_array(translations[end_index]);
-            
-            // 正确的线性插值
             let result = start.lerp(end, ratio);
-            println!("trans:{result}");  // 添加更多调试信息
             Mat4::from_translation(result)
         }
         ReadOutputs::Rotations(rotations) => {
             let rots: Vec<[f32; 4]> = rotations.into_f32().collect();
             let start = Quat::from_array(rots[start_index]);
             let end = Quat::from_array(rots[end_index]);
-            
-            // 正确的四元数球面线性插值
             let result = start.slerp(end, ratio);
-            // println!("rotate:{result}");  // 添加更多调试信息
-
             Mat4::from_quat(result)
         }
         ReadOutputs::Scales(iter) => {
             let scales: Vec<[f32; 3]> = iter.collect();
             let start = Vec3::from_array(scales[start_index]);
             let end = Vec3::from_array(scales[end_index]);
-            
-            // 正确的线性插值
             let result = start.lerp(end, ratio);
-            // println!("scale:{result}");  // 添加更多调试信息
-            
             Mat4::from_scale(result)
         }
         ReadOutputs::MorphTargetWeights(_) =>todo!(),
-    }
+    };
+    Some(out)
 }
