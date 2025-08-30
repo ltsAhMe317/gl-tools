@@ -224,13 +224,13 @@ impl<'a> Player<'a> {
                 let output_mat = output_mat(input,reader.read_outputs().unwrap(),self.time)?;
 
                 
-                // *change.entry(&target_id).or_insert(output_mat) *= output_mat;
+                change.entry(target_id).and_modify(|mat|{*mat*=output_mat}).or_insert(output_mat);
                 // 傻逼 👆 
-                if let Some(mat) = change.get_mut(&target_id){
-                    *mat *= output_mat;
-                }else{
-                    change.insert(target_id, output_mat);
-                }
+                // if let Some(mat) = change.get_mut(&target_id){
+                //     *mat *= output_mat;
+                // }else{
+                //     change.insert(target_id, output_mat);
+                // }
             }
         }
         Some(change)

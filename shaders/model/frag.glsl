@@ -44,8 +44,9 @@ void main()
     vec3 ambient = ambientColor;
     
     // 6. 最终颜色合成
-    vec3 result = (ambient + diffuse) * baseColor.rgb;
+    // vec3 result = (ambient + diffuse) * baseColor.rgb;
     
     // 7. 输出颜色（保留原始alpha）
-    color_out = vec4(result, baseColor.a);
+    // color_out = vec4(result, baseColor.a);
+    color_out = baseColor;
 }

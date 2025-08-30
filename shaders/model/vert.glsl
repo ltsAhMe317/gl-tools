@@ -23,7 +23,7 @@ void main() {
                 weight.z * joint_mats[int(joint.z)] +
                 weight.w * joint_mats[int(joint.w)];
         vec4 world_pos = skin_mat * vec4(vert, 1);
-        gl_Position = project_mat * world_pos;
+        gl_Position = project_mat *  world_pos;
     } else {
         gl_Position = project_mat * model_mat * mesh_mat * vec4(vert, 1);
     }
