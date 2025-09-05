@@ -1,4 +1,5 @@
 pub mod model;
+pub mod video;
 use crate::gl_unit::define::{DrawMode, VertexArrayAttribPointerGen};
 use crate::gl_unit::program::{Program, PROGRAM2D_ONE};
 use crate::gl_unit::texture::{Texture, TextureMap, UVindex};

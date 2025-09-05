@@ -41,7 +41,7 @@ impl AABB {
         let max = self.max_pos();
         Self::new_vec(mat.transform_point3(min), mat.transform_point3(max))
     }
-    fn update(&mut self, x: f32, y: f32, z: f32) {
+    fn update_biggest(&mut self, x: f32, y: f32, z: f32) {
         if x > self.max_x {
             self.max_x = x;
         }
